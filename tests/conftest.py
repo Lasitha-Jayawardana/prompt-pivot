@@ -1,4 +1,4 @@
-"""Fixtures. SQLite runs everywhere; set PROMPTDECK_TEST_POSTGRES_URL / PROMPTDECK_TEST_MYSQL_URL to
+"""Fixtures. SQLite runs everywhere; set PROMPTREGISTRY_TEST_POSTGRES_URL / PROMPTREGISTRY_TEST_MYSQL_URL to
 run the same suite against real servers (CI does)."""
 
 from __future__ import annotations
@@ -12,15 +12,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
 
-from promptdeck import PromptRegistry
+from promptregistry import PromptRegistry
 
 SYNC_URLS = {"sqlite": "sqlite://"}
 ASYNC_URLS = {"sqlite": "sqlite+aiosqlite://"}
-if os.environ.get("PROMPTDECK_TEST_POSTGRES_URL"):
-    SYNC_URLS["postgres"] = os.environ["PROMPTDECK_TEST_POSTGRES_URL"]
+if os.environ.get("PROMPTREGISTRY_TEST_POSTGRES_URL"):
+    SYNC_URLS["postgres"] = os.environ["PROMPTREGISTRY_TEST_POSTGRES_URL"]
     ASYNC_URLS["postgres"] = SYNC_URLS["postgres"].replace("postgresql+psycopg://", "postgresql+asyncpg://")
-if os.environ.get("PROMPTDECK_TEST_MYSQL_URL"):
-    SYNC_URLS["mysql"] = os.environ["PROMPTDECK_TEST_MYSQL_URL"]
+if os.environ.get("PROMPTREGISTRY_TEST_MYSQL_URL"):
+    SYNC_URLS["mysql"] = os.environ["PROMPTREGISTRY_TEST_MYSQL_URL"]
     ASYNC_URLS["mysql"] = SYNC_URLS["mysql"].replace("mysql+pymysql://", "mysql+aiomysql://")
 
 

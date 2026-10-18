@@ -2,6 +2,9 @@
 
 ## 0.1.0 (2026-10-19)
 
+Distribution, import and CLI name: `promptregistry` (the earlier working name `promptdeck` was
+too similar to an existing PyPI project).
+
 First release. Prompts, immutable versions, locales with fallback, labels with optimistic locking,
 change requests with a single approver, append-only audit, per-process TTL+LRU cache with
 single-flight and stale-while-error, typed handles via `define()`, python and jinja formats,
@@ -13,4 +16,4 @@ given and returns a record with `warning`; chat templates accept `Message` objec
 `compile_text()` / `compile_messages()`; `default_actor`; `PromptRegistry.in_memory()`;
 `import_prompts` (old `import_` kept); UI Import page and Export download (`api/export`,
 `api/import`); rollback buttons show the destination; inline reason and locale fields instead of
-browser dialogs; `dev_principal` guarded by `PROMPTDECK_DEV_UI=1`.
+browser dialogs; `dev_principal` guarded by `PROMPTREGISTRY_DEV_UI=1`.

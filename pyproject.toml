@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "promptdeck"
+name = "promptregistry"
 version = "0.1.0"
 description = "Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using your own PostgreSQL or MySQL database."
 readme = "README.md"
@@ -39,7 +39,7 @@ yaml = ["pyyaml>=6.0"]
 otel = ["opentelemetry-api>=1.20"]
 
 [project.scripts]
-promptdeck = "promptdeck.cli:main"
+promptregistry = "promptregistry.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Lasitha-Jayawardana/prompt-deck"
@@ -48,10 +48,10 @@ Issues = "https://github.com/Lasitha-Jayawardana/prompt-deck/issues"
 Changelog = "https://github.com/Lasitha-Jayawardana/prompt-deck/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/promptdeck"]
+packages = ["src/promptregistry"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/promptdeck", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+include = ["src/promptregistry", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 
 [dependency-groups]
 dev = [
@@ -71,12 +71,12 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-filterwarnings = ["error::DeprecationWarning:promptdeck"]
+filterwarnings = ["error::DeprecationWarning:promptregistry"]
 
 [tool.mypy]
 strict = true
 python_version = "3.10"
-files = ["src/promptdeck"]
+files = ["src/promptregistry"]
 [[tool.mypy.overrides]]
 module = ["yaml", "yaml.*", "alembic", "alembic.*", "opentelemetry", "opentelemetry.*"]
 ignore_missing_imports = true
@@ -88,9 +88,9 @@ target-version = "py310"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501", "B017", "B011"]
-"src/promptdeck/fastapi.py" = ["B008"]
+"src/promptregistry/fastapi.py" = ["B008"]
 "examples/*" = ["B008"]
-"src/promptdeck/migrations/*" = ["E402"]
+"src/promptregistry/migrations/*" = ["E402"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/promptdeck/migrations/script.py.mako" = "promptdeck/migrations/script.py.mako"
+"src/promptregistry/migrations/script.py.mako" = "promptregistry/migrations/script.py.mako"

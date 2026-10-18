@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from promptdeck import PromptRegistry
-from promptdeck.cli import main
-from promptdeck.migrations import upgrade
+from promptregistry import PromptRegistry
+from promptregistry.cli import main
+from promptregistry.migrations import upgrade
 from tests.conftest import seed
 
 
@@ -45,7 +45,7 @@ def test_cli_roundtrip(url: str, tmp_path, capsys, monkeypatch):
     assert main(["--url", url, "rollback", "copy/agent", "production"]) == 0
     assert "-> v1" in capsys.readouterr().out
     assert reg.get("copy/agent", ttl=0).version == 1
-    monkeypatch.delenv("PROMPTDECK_DATABASE_URL", raising=False)
+    monkeypatch.delenv("PROMPTREGISTRY_DATABASE_URL", raising=False)
     with pytest.raises(SystemExit):
         main(["list"])
 

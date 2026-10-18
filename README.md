@@ -1,4 +1,4 @@
-# promptdeck
+# promptregistry
 
 Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using the
 PostgreSQL or MySQL database you already have. No extra server, no vendor cloud, no background
@@ -18,13 +18,13 @@ Full feature, use-case and UI walkthrough: [docs/guide.md](docs/guide.md).
 ## Install
 
 ```bash
-pip install promptdeck
+pip install promptregistry
 # optional extras
-pip install "promptdeck[postgres]"   # asyncpg + psycopg
-pip install "promptdeck[mysql]"      # aiomysql + pymysql
-pip install "promptdeck[alembic]"    # versioned schema migrations (recommended in production)
-pip install "promptdeck[yaml]"       # YAML export/import in the CLI
-pip install "promptdeck[otel]"       # OpenTelemetry span attributes
+pip install "promptregistry[postgres]"   # asyncpg + psycopg
+pip install "promptregistry[mysql]"      # aiomysql + pymysql
+pip install "promptregistry[alembic]"    # versioned schema migrations (recommended in production)
+pip install "promptregistry[yaml]"       # YAML export/import in the CLI
+pip install "promptregistry[otel]"       # OpenTelemetry span attributes
 ```
 
 Python 3.10+, SQLAlchemy 2, Pydantic 2, FastAPI 0.110+. PostgreSQL 13+ and MySQL 8+ (SQLite works
@@ -35,18 +35,18 @@ for local development and tests).
 **1. Create the schema** (once per database, alongside your own migrations):
 
 ```bash
-promptdeck --url postgresql+psycopg://user:pass@host/db migrate
+promptregistry --url postgresql+psycopg://user:pass@host/db migrate
 ```
 
-or from code: `from promptdeck.migrations import upgrade; upgrade(engine)`.
+or from code: `from promptregistry.migrations import upgrade; upgrade(engine)`.
 
 **2. Create the registry and mount the admin UI:**
 
 ```python
 from fastapi import Depends, FastAPI
 from sqlalchemy.ext.asyncio import create_async_engine
-from promptdeck import PromptRegistry, Principal
-from promptdeck.fastapi import admin_router
+from promptregistry import PromptRegistry, Principal
+from promptregistry.fastapi import admin_router
 
 engine = create_async_engine("postgresql+asyncpg://user:pass@host/db")   # async or sync engine
 prompts = PromptRegistry(engine, environment="production")
@@ -59,8 +59,8 @@ app.include_router(admin_router(prompts, principal=principal), prefix="/admin/pr
 ```
 
 Nothing is exposed unless you mount the router, and the router always runs your `principal`
-dependency first. For a first local run, `from promptdeck.fastapi import dev_principal` grants
-every permission; it only works when `PROMPTDECK_DEV_UI=1` is set, so it cannot ship by accident.
+dependency first. For a first local run, `from promptregistry.fastapi import dev_principal` grants
+every permission; it only works when `PROMPTREGISTRY_DEV_UI=1` is set, so it cannot ship by accident.
 
 **3. Read prompts in agent code:**
 
@@ -160,7 +160,7 @@ background threads) and from plain scripts; calling them from inside a running c
 | `cache_ttl` | `300` | Seconds a cache entry is fresh; `0` disables caching |
 | `cache_max_entries` | `500` | LRU bound per process |
 | `max_stale` | `3600` | How long an expired entry may be served while the database is down |
-| `table_prefix` | `promptdeck_` | Prefix for all tables and the Alembic version table |
+| `table_prefix` | `promptregistry_` | Prefix for all tables and the Alembic version table |
 | `protected_labels` | `("production",)` | Labels that require an approved change request |
 | `require_distinct_approver` | `True` | Approver must differ from the author |
 | `config_model` | `PromptConfig` | Pydantic model for `handle.config` (extra keys allowed) |
@@ -226,24 +226,24 @@ never sent to end users by the package.
 ### Migrating existing prompts
 
 Most teams start with prompts hardcoded in Python. Paste each one into *New prompt* → *New
-version* in the UI, or write them once as an export file and use *Import* (UI), `promptdeck import`
+version* in the UI, or write them once as an export file and use *Import* (UI), `promptregistry import`
 (CLI) or `POST api/import`. Then replace the constant in code with `prompts.get("name")` and keep
 the old string as `default=` until you trust the database path.
 
 ## CLI
 
 ```bash
-export PROMPTDECK_DATABASE_URL=postgresql+psycopg://user:pass@host/db
-promptdeck migrate                                   # create or upgrade the schema
-promptdeck list                                      # prompts and their labels
-promptdeck export -o prompts.yaml                    # backup / copy between environments (.json or .yaml)
-promptdeck import prompts.yaml [--no-labels]         # versions matched by checksum, nothing duplicated
-promptdeck publish support/agent 7 staging --locale fr
-promptdeck publish support/agent 7 production --force --reason "incident 123"
-promptdeck rollback support/agent production
+export PROMPTREGISTRY_DATABASE_URL=postgresql+psycopg://user:pass@host/db
+promptregistry migrate                                   # create or upgrade the schema
+promptregistry list                                      # prompts and their labels
+promptregistry export -o prompts.yaml                    # backup / copy between environments (.json or .yaml)
+promptregistry import prompts.yaml [--no-labels]         # versions matched by checksum, nothing duplicated
+promptregistry publish support/agent 7 staging --locale fr
+promptregistry publish support/agent 7 production --force --reason "incident 123"
+promptregistry rollback support/agent production
 ```
 
-Async URLs (`+asyncpg`, `+aiomysql`) work too. `--prefix` or `PROMPTDECK_TABLE_PREFIX` selects the
+Async URLs (`+asyncpg`, `+aiomysql`) work too. `--prefix` or `PROMPTREGISTRY_TABLE_PREFIX` selects the
 table prefix; `--actor` sets the audit actor (defaults to `$USER`).
 
 ## Migrations
@@ -251,12 +251,12 @@ table prefix; `--actor` sets the audit actor (defaults to `$USER`).
 Tables: `prompts`, `versions`, `labels`, `label_history`, `change_requests`, `audit_log`, all with
 the configurable prefix and portable types (JSON, Text, BigInteger). Migrations ship as Alembic
 scripts with their own version table (`<prefix>alembic_version`) so they coexist with your app's.
-`promptdeck migrate` or `promptdeck.migrations.upgrade(engine)` runs them; without the `[alembic]`
+`promptregistry migrate` or `promptregistry.migrations.upgrade(engine)` runs them; without the `[alembic]`
 extra they fall back to `create_all`, which is fine for development.
 
 ## Production checklist
 
-1. Install `promptdeck[alembic]` and run `promptdeck migrate` in your deploy pipeline.
+1. Install `promptregistry[alembic]` and run `promptregistry migrate` in your deploy pipeline.
 2. Mount the router behind your real auth; give `prompts:publish:production` only to approvers or
    on-call, and `prompts:admin` to very few people.
 3. Serve the admin UI over HTTPS (the CSRF cookie is marked `secure` on HTTPS requests).
@@ -269,7 +269,7 @@ extra they fall back to `create_all`, which is fine for development.
 
 ## Rollback runbook
 
-1. Open `/admin/prompts/p/<name>?locale=<locale>` (or run `promptdeck rollback <name> production`).
+1. Open `/admin/prompts/p/<name>?locale=<locale>` (or run `promptregistry rollback <name> production`).
 2. Click **Rollback production**. The label moves back to its previous version in one transaction;
    the audit log records who did it and when.
 3. The worker that handled the request serves the old version at once; all other workers within
@@ -279,7 +279,7 @@ extra they fall back to `create_all`, which is fine for development.
 
 ## Using a local checkout in other projects
 
-While iterating on promptdeck itself, install it editable so every other project on the machine
+While iterating on promptregistry itself, install it editable so every other project on the machine
 picks up your edits without reinstalling:
 
 ```bash
@@ -288,7 +288,7 @@ pip install -e /path/to/prompt-deck
 uv add --editable /path/to/prompt-deck        # uv-managed project
 ```
 
-Straight from GitHub without a checkout: `pip install "promptdeck @ git+https://github.com/Lasitha-Jayawardana/prompt-deck.git"`.
+Straight from GitHub without a checkout: `pip install "promptregistry @ git+https://github.com/Lasitha-Jayawardana/prompt-deck.git"`.
 
 ## Development
 
@@ -296,7 +296,7 @@ Straight from GitHub without a checkout: `pip install "promptdeck @ git+https://
 uv venv && uv pip install -e . --group dev
 pytest                      # SQLite, sync and async
 mypy && ruff check .
-PROMPTDECK_TEST_POSTGRES_URL=postgresql+psycopg://... PROMPTDECK_TEST_MYSQL_URL=mysql+pymysql://... pytest
+PROMPTREGISTRY_TEST_POSTGRES_URL=postgresql+psycopg://... PROMPTREGISTRY_TEST_MYSQL_URL=mysql+pymysql://... pytest
 ```
 
 License: Apache-2.0.

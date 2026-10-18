@@ -16,8 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .cache import PromptCache
 from .errors import (
-    PromptDeckError,
     PromptNotFound,
+    PromptRegistryError,
     PromptStoreUnavailable,
     PromptValidationError,
 )
@@ -35,7 +35,7 @@ from .schema import DEFAULT_PREFIX, Tables, build_tables
 from .store import Store, locale_candidates
 from .templating import build_renderer
 
-log = logging.getLogger("promptdeck")
+log = logging.getLogger("promptregistry")
 
 V = TypeVar("V", bound=BaseModel)
 C = TypeVar("C", bound=BaseModel)
@@ -116,7 +116,7 @@ class PromptRegistry:
             pass
         else:
             raise RuntimeError(
-                "promptdeck: this registry wraps an AsyncEngine and a sync method was called from inside a "
+                "promptregistry: this registry wraps an AsyncEngine and a sync method was called from inside a "
                 "running event loop. Use the async form (aget, apublish, ...) here; the sync forms work from "
                 "threads and plain scripts."
             )
@@ -264,7 +264,7 @@ class PromptRegistry:
         now = time.monotonic()
         if now - self._last_warn > 30:
             self._last_warn = now
-            log.warning("promptdeck: prompt store unavailable (%s); serving stale/default", err)
+            log.warning("promptregistry: prompt store unavailable (%s); serving stale/default", err)
         stale = self.cache.stale(key, self.max_stale)
         if stale is not None:
             h = stale if stale.is_fallback else replace(stale, is_fallback=True)
@@ -371,14 +371,14 @@ class PromptRegistry:
             ok = await self._arun(self.store.health)
         except _UNAVAILABLE as e:
             ok = False
-            log.warning("promptdeck health: %s", e)
+            log.warning("promptregistry health: %s", e)
         return self._health(ok)
 
     def _safe(self, fn: Callable[[], bool]) -> bool:
         try:
             return fn()
         except _UNAVAILABLE as e:
-            log.warning("promptdeck health: %s", e)
+            log.warning("promptregistry health: %s", e)
             return False
 
     def _health(self, ok: bool) -> dict[str, Any]:
@@ -671,9 +671,7 @@ class PromptRegistry:
         actor: str | None = None,
         limit: int = 200,
     ) -> list[AuditRecord]:
-        return self._run(
-            self.store.audit, target_type=target_type, target_id=target_id, actor=actor, limit=limit
-        )
+        return self._run(self.store.audit, target_type=target_type, target_id=target_id, actor=actor, limit=limit)
 
     async def aaudit(
         self,
@@ -784,4 +782,4 @@ class PromptAccessor(Generic[V, C, M]):
         )
 
 
-__all__ = ["PromptRegistry", "PromptAccessor", "Connection", "Awaitable", "PromptDeckError"]
+__all__ = ["PromptRegistry", "PromptAccessor", "Connection", "Awaitable", "PromptRegistryError"]

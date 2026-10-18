@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from promptdeck import PromptNotFound, PromptRegistry, PromptStoreUnavailable
+from promptregistry import PromptNotFound, PromptRegistry, PromptStoreUnavailable
 
 
 async def aseed(reg: PromptRegistry) -> None:

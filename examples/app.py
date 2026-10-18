@@ -10,11 +10,11 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from promptdeck import Principal, PromptRegistry
-from promptdeck.fastapi import admin_router
-from promptdeck.migrations import aupgrade
+from promptregistry import Principal, PromptRegistry
+from promptregistry.fastapi import admin_router
+from promptregistry.migrations import aupgrade
 
-DB = Path(__file__).with_name("promptdeck-demo.db")
+DB = Path(__file__).with_name("promptregistry-demo.db")
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB}")
 prompts = PromptRegistry(engine, environment="production", cache_ttl=30)
 
@@ -31,7 +31,7 @@ async def principal(request: Request) -> Principal:
     return Principal(id=role, name=role.title(), permissions=frozenset(ROLE_PERMISSIONS[role]))
 
 
-app = FastAPI(title="promptdeck demo")
+app = FastAPI(title="promptregistry demo")
 app.include_router(admin_router(prompts, principal=principal), prefix="/admin/prompts")
 
 

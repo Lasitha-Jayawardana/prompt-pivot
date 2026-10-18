@@ -1,10 +1,10 @@
-"""promptdeck: store, version, edit and publish LLM prompts at runtime inside your FastAPI app."""
+"""promptregistry: store, version, edit and publish LLM prompts at runtime inside your FastAPI app."""
 
 from .errors import (
     PromptConflict,
-    PromptDeckError,
     PromptNotFound,
     PromptPolicyError,
+    PromptRegistryError,
     PromptRenderError,
     PromptStoreUnavailable,
     PromptValidationError,
@@ -35,7 +35,7 @@ __all__ = [
     "LabelRecord",
     "ChangeRequestRecord",
     "AuditRecord",
-    "PromptDeckError",
+    "PromptRegistryError",
     "PromptNotFound",
     "PromptRenderError",
     "PromptValidationError",

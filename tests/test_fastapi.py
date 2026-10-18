@@ -8,8 +8,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
-from promptdeck import Principal, PromptRegistry
-from promptdeck.fastapi import admin_router
+from promptregistry import Principal, PromptRegistry
+from promptregistry.fastapi import admin_router
 from tests.conftest import seed
 
 ROLES = {
@@ -39,13 +39,13 @@ def client():
 
 
 def post(c: TestClient, path: str, role: str, **data: str) -> object:
-    tok = c.cookies.get("promptdeck_csrf")
+    tok = c.cookies.get("promptregistry_csrf")
     return c.post(path, data={"csrf": tok, **data}, headers={"x-role": role}, follow_redirects=False)
 
 
 def test_ui_pages_and_permissions(client: TestClient):
     r = client.get("/admin/prompts/", headers={"x-role": "viewer"})
-    assert r.status_code == 200 and "support/agent" in r.text and client.cookies.get("promptdeck_csrf")
+    assert r.status_code == 200 and "support/agent" in r.text and client.cookies.get("promptregistry_csrf")
     assert "New prompt" not in r.text
     assert client.get("/admin/prompts/new", headers={"x-role": "viewer"}).status_code == 403
     assert client.get("/admin/prompts/new", headers={"x-role": "editor"}).status_code == 200
@@ -348,15 +348,15 @@ def test_rollback_target_shown_and_inline_forms(client: TestClient):
 
 
 def test_dev_principal(monkeypatch: pytest.MonkeyPatch):
-    from promptdeck.fastapi import dev_principal
+    from promptregistry.fastapi import dev_principal
 
     reg = PromptRegistry.in_memory()
     app = FastAPI()
     app.include_router(admin_router(reg, principal=dev_principal), prefix="/admin/prompts")
-    monkeypatch.delenv("PROMPTDECK_DEV_UI", raising=False)
+    monkeypatch.delenv("PROMPTREGISTRY_DEV_UI", raising=False)
     with TestClient(app) as c:
         assert c.get("/admin/prompts/").status_code == 503
-    monkeypatch.setenv("PROMPTDECK_DEV_UI", "1")
+    monkeypatch.setenv("PROMPTREGISTRY_DEV_UI", "1")
     with TestClient(app) as c:
         assert c.get("/admin/prompts/").status_code == 200
         assert c.get("/admin/prompts/audit").status_code == 200

@@ -1,4 +1,4 @@
-# promptdeck user guide
+# promptregistry user guide
 
 This guide lists every feature, how to use it from code, the admin UI and the CLI, and the
 situations each one is for. The [README](../README.md) has the install and quickstart.
@@ -23,7 +23,7 @@ prompt  "support/agent"  (type: text | chat, tags, metadata)
 
 ## 2. Roles and permissions
 
-Your app's auth decides who the user is; promptdeck decides what they may do from the
+Your app's auth decides who the user is; promptregistry decides what they may do from the
 permissions you put on the `Principal`.
 
 | Permission | Who usually has it | What it unlocks |
@@ -230,7 +230,7 @@ It is an undo: rolling back twice re-applies the move. The UI button shows the d
 prompts.rollback("support/agent", "production", actor="ops")
 ```
 ```bash
-promptdeck rollback support/agent production --locale en
+promptregistry rollback support/agent production --locale en
 ```
 
 **UI.** *Rollback production (vN)* button under the versions table. The worker that handled the
@@ -279,7 +279,7 @@ Errors to handle: `PromptNotFound`, `PromptRenderError` (missing variable, bad t
   Pass `ttl=` per call for a hotter or colder prompt; `ttl=0` always queries.
 - A publish or rollback made through a registry clears that process's entries for the prompt.
 - During a database outage, expired entries keep serving for `max_stale` (1 h) with
-  `is_fallback=True`, retried every 5 s, with one warning per 30 s in the `promptdeck` logger.
+  `is_fallback=True`, retried every 5 s, with one warning per 30 s in the `promptregistry` logger.
 - `cache_max_entries` (500) bounds memory per worker.
 
 ```python
@@ -310,14 +310,14 @@ prompts.audit(actor="ops")
 ### 3.13 Export, import and the CLI
 
 ```bash
-export PROMPTDECK_DATABASE_URL=postgresql+psycopg://...
-promptdeck migrate                           # create or upgrade tables (Alembic when installed)
-promptdeck list
-promptdeck export -o prompts.yaml            # or .json; selected names as extra args
-promptdeck import prompts.yaml               # versions matched by checksum; labels set unless --no-labels
-promptdeck publish support/agent 7 staging
-promptdeck publish support/agent 7 production --force --reason "incident"
-promptdeck rollback support/agent production
+export PROMPTREGISTRY_DATABASE_URL=postgresql+psycopg://...
+promptregistry migrate                           # create or upgrade tables (Alembic when installed)
+promptregistry list
+promptregistry export -o prompts.yaml            # or .json; selected names as extra args
+promptregistry import prompts.yaml               # versions matched by checksum; labels set unless --no-labels
+promptregistry publish support/agent 7 staging
+promptregistry publish support/agent 7 production --force --reason "incident"
+promptregistry rollback support/agent production
 ```
 
 `prompts.export()` / `prompts.import_prompts(data)` do the same from code, and admins have an
@@ -414,7 +414,7 @@ serves it within `cache_ttl`.
 warning when saving.
 
 **Incident: a bad prompt is live.** On-call opens the prompt, clicks *Rollback production*, or
-runs `promptdeck rollback <name> production`. Confirm with the labels on the list page and the
+runs `promptregistry rollback <name> production`. Confirm with the labels on the list page and the
 `prompt.version` attribute on new LLM spans.
 
 **Canary a rewrite.** Publish the new version to a `canary` label (no approval needed for custom
@@ -445,11 +445,11 @@ version*, or write one export JSON and use *Import*. Replace the Python constant
 `prompts.get("name", default=OLD_CONSTANT)` and drop the default once the database path is trusted.
 
 **First local run with no auth yet.** `admin_router(prompts, principal=dev_principal)` with
-`PROMPTDECK_DEV_UI=1` in the environment gives an all-permissions user; the dependency refuses to
+`PROMPTREGISTRY_DEV_UI=1` in the environment gives an all-permissions user; the dependency refuses to
 run without that variable.
 
-**Seed a new environment.** `promptdeck export -o prompts.yaml` on the source database,
-`promptdeck import prompts.yaml` on the target. Labels are set as in the file; use `--no-labels` to
+**Seed a new environment.** `promptregistry export -o prompts.yaml` on the source database,
+`promptregistry import prompts.yaml` on the target. Labels are set as in the file; use `--no-labels` to
 import versions only and publish by hand.
 
 **Grant a PM edit rights without production access.** Give them `prompts:read`, `prompts:edit`,

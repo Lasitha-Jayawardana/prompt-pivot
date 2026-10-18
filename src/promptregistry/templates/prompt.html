@@ -7,11 +7,11 @@
 {% if crs %}<h2>Change requests</h2><table><tr><th>#</th><th>Version</th><th>Target</th><th>Author</th><th>Status</th><th></th></tr>
 {% for c in crs %}<tr><td>{{ c.id }}</td><td>v{{ c.version }} ({{ c.locale }})</td><td>{{ c.target_label }}</td><td>{{ c.author }}{% if c.comment %}<div class="mut">{{ c.comment }}</div>{% endif %}</td><td>{{ c.status }}{% if c.reviewer %} by {{ c.reviewer }}{% endif %}</td>
 <td>{% if c.status == 'open' and principal.can('prompts:approve') %}
-<form class="inline" method="post" action="{{ request.url_for('promptdeck_approve', cr_id=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sm pri">Approve</button></form>
-<form class="inline" method="post" action="{{ request.url_for('promptdeck_reject', cr_id=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sm">Reject</button></form>
-<a class="sm" href="{{ request.url_for('promptdeck_diff', name=prompt.name) }}?a={{ current.get(c.target_label, c.version) }}&b={{ c.version }}&locale={{ c.locale }}">diff</a>
+<form class="inline" method="post" action="{{ request.url_for('promptregistry_approve', cr_id=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sm pri">Approve</button></form>
+<form class="inline" method="post" action="{{ request.url_for('promptregistry_reject', cr_id=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="sm">Reject</button></form>
+<a class="sm" href="{{ request.url_for('promptregistry_diff', name=prompt.name) }}?a={{ current.get(c.target_label, c.version) }}&b={{ c.version }}&locale={{ c.locale }}">diff</a>
 {% elif c.status == 'approved' and principal.can('prompts:publish:' ~ c.target_label) %}
-<form class="inline" method="post" action="{{ request.url_for('promptdeck_publish', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ c.version }}"><input type="hidden" name="label" value="{{ c.target_label }}"><input type="hidden" name="locale" value="{{ c.locale }}"><button class="sm pri">Publish</button></form>
+<form class="inline" method="post" action="{{ request.url_for('promptregistry_publish', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ c.version }}"><input type="hidden" name="label" value="{{ c.target_label }}"><input type="hidden" name="locale" value="{{ c.locale }}"><button class="sm pri">Publish</button></form>
 {% endif %}</td></tr>{% endfor %}</table>{% endif %}
 
 <h2>Versions · {{ locale }}</h2>
@@ -19,23 +19,23 @@
 {% for v in versions %}<tr><td><b>v{{ v.version }}</b></td>
 <td>{% for l in label_map.get(v.id, []) %}<span class="lbl {{ l }}">{{ l }}</span>{% endfor %}</td>
 <td>{{ v.format }}</td><td>{{ v.message }}<div class="mut">vars: {{ v.variables|join(', ') or '—' }}</div></td><td>{{ v.created_by }}</td><td class="mut">{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-<td>{% if not loop.last %}<a href="{{ request.url_for('promptdeck_diff', name=prompt.name) }}?a={{ versions[loop.index].version }}&b={{ v.version }}&locale={{ locale }}">diff prev</a> {% endif %}
+<td>{% if not loop.last %}<a href="{{ request.url_for('promptregistry_diff', name=prompt.name) }}?a={{ versions[loop.index].version }}&b={{ v.version }}&locale={{ locale }}">diff prev</a> {% endif %}
 <details class="inline"><summary class="inline">more</summary>
-<form class="inline" method="post" action="{{ request.url_for('promptdeck_preview', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="locale" value="{{ locale }}">
+<form class="inline" method="post" action="{{ request.url_for('promptregistry_preview', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="locale" value="{{ locale }}">
 <input name="variables" placeholder='{"name": "Alice"}' class="mono"><button class="sm">Preview</button></form>
 {% for lb in ['staging', 'production'] %}{% if lb in protected %}
-{% if principal.can('prompts:edit') %}<form class="inline" method="post" action="{{ request.url_for('promptdeck_request', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="label" value="{{ lb }}"><input type="hidden" name="locale" value="{{ locale }}"><button class="sm">Request {{ lb }}</button></form>{% endif %}
-{% if principal.can('prompts:admin') %}<form class="inline" method="post" action="{{ request.url_for('promptdeck_publish', name=prompt.name) }}" ><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="label" value="{{ lb }}"><input type="hidden" name="locale" value="{{ locale }}"><input type="hidden" name="force" value="1"><input name="reason" placeholder="reason (required)" required size="18"><button class="sm">Force {{ lb }}</button></form>{% endif %}
-{% elif principal.can('prompts:publish:' ~ lb) %}<form class="inline" method="post" action="{{ request.url_for('promptdeck_publish', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="label" value="{{ lb }}"><input type="hidden" name="locale" value="{{ locale }}"><button class="sm">→ {{ lb }}</button></form>{% endif %}{% endfor %}
+{% if principal.can('prompts:edit') %}<form class="inline" method="post" action="{{ request.url_for('promptregistry_request', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="label" value="{{ lb }}"><input type="hidden" name="locale" value="{{ locale }}"><button class="sm">Request {{ lb }}</button></form>{% endif %}
+{% if principal.can('prompts:admin') %}<form class="inline" method="post" action="{{ request.url_for('promptregistry_publish', name=prompt.name) }}" ><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="label" value="{{ lb }}"><input type="hidden" name="locale" value="{{ locale }}"><input type="hidden" name="force" value="1"><input name="reason" placeholder="reason (required)" required size="18"><button class="sm">Force {{ lb }}</button></form>{% endif %}
+{% elif principal.can('prompts:publish:' ~ lb) %}<form class="inline" method="post" action="{{ request.url_for('promptregistry_publish', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="label" value="{{ lb }}"><input type="hidden" name="locale" value="{{ locale }}"><button class="sm">→ {{ lb }}</button></form>{% endif %}{% endfor %}
 </details></td></tr>
 {% else %}<tr><td colspan="7" class="mut">No versions for {{ locale }} yet.</td></tr>{% endfor %}</table>
 {% set rb = [] %}{% for l in labels if l.locale == locale and l.label != 'latest' and principal.can('prompts:publish:' ~ l.label) %}
-{% if l.label in rollback_to %}<form class="inline" method="post" action="{{ request.url_for('promptdeck_rollback', name=prompt.name) }}" onsubmit="return confirm('Move {{ l.label }} from v{{ l.version }} back to v{{ rollback_to[l.label] }}?')"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="label" value="{{ l.label }}"><input type="hidden" name="locale" value="{{ locale }}"><button class="sm">Rollback {{ l.label }}: v{{ l.version }} → v{{ rollback_to[l.label] }}</button></form>{% endif %}
+{% if l.label in rollback_to %}<form class="inline" method="post" action="{{ request.url_for('promptregistry_rollback', name=prompt.name) }}" onsubmit="return confirm('Move {{ l.label }} from v{{ l.version }} back to v{{ rollback_to[l.label] }}?')"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="label" value="{{ l.label }}"><input type="hidden" name="locale" value="{{ locale }}"><button class="sm">Rollback {{ l.label }}: v{{ l.version }} → v{{ rollback_to[l.label] }}</button></form>{% endif %}
 {% endfor %}
 
 {% if principal.can('prompts:edit') %}
 <h2>New version · {{ locale }}</h2>
-<form method="post" action="{{ request.url_for('promptdeck_version', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="locale" value="{{ locale }}">
+<form method="post" action="{{ request.url_for('promptregistry_version', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="locale" value="{{ locale }}">
 <div class="row"><div><label>Format</label><select name="format" id="fmt"><option value="python" {{ 'selected' if latest and latest.format == 'python' }}>python — {name}</option><option value="jinja" {{ 'selected' if latest and latest.format == 'jinja' }}>jinja — {{ '{{ name }}' }}</option></select></div>
 <div><label>Commit message</label><input name="message" required style="width:100%"></div></div>
 <label>Template{% if prompt.type == 'chat' %} (JSON list of {"role", "content"} messages){% endif %} — variables: <span id="vars" class="mono"></span></label>
@@ -45,11 +45,11 @@
 <p><button class="pri">Save version</button> <span class="mut">Saving moves <code>latest</code>; production and staging move only when published.</span></p></form>
 
 <h2>Metadata</h2>
-<form method="post" action="{{ request.url_for('promptdeck_metadata', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="locale" value="{{ locale }}">
+<form method="post" action="{{ request.url_for('promptregistry_metadata', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="locale" value="{{ locale }}">
 <div class="row"><div><label>Description</label><input name="description" value="{{ prompt.description or '' }}" style="width:100%"></div><div><label>Tags</label><input name="tags" value="{{ tags }}" style="width:100%"></div></div>
 <label>Metadata (JSON object; editable without a new version)</label><textarea name="metadata" class="mono" style="min-height:80px">{{ prompt.metadata|json }}</textarea>
 <p><button>Save metadata</button>
-{% if principal.can('prompts:admin') %}</form><form class="inline" method="post" action="{{ request.url_for('promptdeck_archive', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}">{% if prompt.archived_at %}<input type="hidden" name="undo" value="1"><button>Restore</button>{% else %}<button onclick="return confirm('Archive {{ prompt.name }}? History is kept.')">Archive</button>{% endif %}{% endif %}</p></form>
+{% if principal.can('prompts:admin') %}</form><form class="inline" method="post" action="{{ request.url_for('promptregistry_archive', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}">{% if prompt.archived_at %}<input type="hidden" name="undo" value="1"><button>Restore</button>{% else %}<button onclick="return confirm('Archive {{ prompt.name }}? History is kept.')">Archive</button>{% endif %}{% endif %}</p></form>
 <script>
 (function(){var t=document.getElementById('tpl'),f=document.getElementById('fmt'),o=document.getElementById('vars');
 function d(){var s=t.value,r=f.value==='python'?/\{([A-Za-z_]\w*)[^{}]*\}/g:/\{\{\s*([A-Za-z_]\w*)/g,m,v=[];

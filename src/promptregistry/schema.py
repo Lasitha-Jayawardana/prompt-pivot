@@ -19,7 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-DEFAULT_PREFIX = "promptdeck_"
+DEFAULT_PREFIX = "promptregistry_"
 BigId = BigInteger().with_variant(Integer(), "sqlite")
 
 
