@@ -1,7 +1,7 @@
 import pytest
 
-from promptregistry import Message, PromptRenderError
-from promptregistry.templating import build_renderer, checksum, detect_variables
+from promptpivot import Message, PromptRenderError
+from promptpivot.templating import build_renderer, checksum, detect_variables
 
 
 def test_python_basic_and_escapes():

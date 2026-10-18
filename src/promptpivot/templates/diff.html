@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}diff {{ name }}{% endblock %}{% block body %}
-<h1><a href="{{ request.url_for('promptregistry_prompt', name=name) }}?locale={{ locale }}">{{ name }}</a> · v{{ a }} → v{{ b }} ({{ locale }})</h1>
+<h1><a href="{{ request.url_for('promptpivot_prompt', name=name) }}?locale={{ locale }}">{{ name }}</a> · v{{ a }} → v{{ b }} ({{ locale }})</h1>
 <pre class="diff">{% for line in diff.splitlines() %}<span class="{{ 'a' if line.startswith('-') else 'b' if line.startswith('+') else '' }}">{{ line }}</span>
 {% endfor %}</pre>
 {% endblock %}

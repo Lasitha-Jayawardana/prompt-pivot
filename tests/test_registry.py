@@ -7,7 +7,7 @@ import pytest
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 
-from promptregistry import (
+from promptpivot import (
     PromptConflict,
     PromptNotFound,
     PromptPolicyError,
@@ -302,7 +302,7 @@ def test_multi_worker_publish(tmp_path):
 
 
 def test_config_carry_over_and_message_input(registry: PromptRegistry):
-    from promptregistry import Message
+    from promptpivot import Message
 
     registry.create_prompt("c", "chat", actor="a")
     registry.create_version("c", [Message(role="user", content="v1 {q}")], message="m", config={"model": "m1"})

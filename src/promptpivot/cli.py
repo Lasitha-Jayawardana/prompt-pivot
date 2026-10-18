@@ -1,4 +1,4 @@
-"""``promptregistry`` command line: migrate, export, import, publish, rollback, list."""
+"""``promptpivot`` command line: migrate, export, import, publish, rollback, list."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from .errors import PromptRegistryError
+from .errors import PromptPivotError
 from .migrations import upgrade
 from .registry import PromptRegistry
 from .schema import DEFAULT_PREFIX
@@ -51,13 +51,13 @@ def _dump(data: dict[str, Any], path: str | None) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="promptregistry", description="Manage promptregistry prompts in a database.")
+    ap = argparse.ArgumentParser(prog="prompt-pivot", description="Manage promptpivot prompts in a database.")
     ap.add_argument(
         "--url",
-        default=os.environ.get("PROMPTREGISTRY_DATABASE_URL"),
-        help="SQLAlchemy URL (or env PROMPTREGISTRY_DATABASE_URL)",
+        default=os.environ.get("PROMPTPIVOT_DATABASE_URL"),
+        help="SQLAlchemy URL (or env PROMPTPIVOT_DATABASE_URL)",
     )
-    ap.add_argument("--prefix", default=os.environ.get("PROMPTREGISTRY_TABLE_PREFIX", DEFAULT_PREFIX))
+    ap.add_argument("--prefix", default=os.environ.get("PROMPTPIVOT_TABLE_PREFIX", DEFAULT_PREFIX))
     ap.add_argument("--actor", default=os.environ.get("USER", "cli"), help="actor recorded in audit")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("migrate", help="create or upgrade the schema")
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     ls.add_argument("-q")
     args = ap.parse_args(argv)
     if not args.url:
-        ap.error("--url or PROMPTREGISTRY_DATABASE_URL is required")
+        ap.error("--url or PROMPTPIVOT_DATABASE_URL is required")
 
     engine = _engine(args.url)
     try:
@@ -116,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
             for pr in prompts:
                 tags = ", ".join(f"{x.label}@{x.locale}=v{x.version}" for x in labels[pr.name] if x.label != "latest")
                 print(f"{pr.name}\t{pr.type}\t{tags}")
-    except PromptRegistryError as e:
+    except PromptPivotError as e:
         print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
     return 0

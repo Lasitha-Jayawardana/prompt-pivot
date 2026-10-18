@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{% block title %}Prompts{% endblock %} · promptregistry</title>
+<title>{% block title %}Prompts{% endblock %} · promptpivot</title>
 <style>
 :root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--ln:#ddd;--acc:#2563eb;--ok:#15803d;--err:#b91c1c;--warn:#b45309;--code:#f4f4f5}
 @media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#999;--ln:#333;--acc:#60a5fa;--ok:#4ade80;--err:#f87171;--warn:#fbbf24;--code:#1c1c1e}}
@@ -21,12 +21,12 @@ button{cursor:pointer}button.pri{background:var(--acc);color:#fff;border-color:v
 .mut{color:var(--mut)}.tabs a{display:inline-block;padding:4px 10px;border:1px solid var(--ln);border-radius:6px;margin-right:4px;text-decoration:none;color:inherit}.tabs a.on{border-color:var(--acc);color:var(--acc)}
 .diff .a{color:var(--err)}.diff .b{color:var(--ok)}details{margin:6px 0}summary{cursor:pointer}
 </style></head><body>
-<header><a class="brand" href="{{ request.url_for('promptregistry_index') }}">promptregistry</a>
-<a href="{{ request.url_for('promptregistry_index') }}">Prompts</a>
-{% if principal.can('prompts:edit') %}<a href="{{ request.url_for('promptregistry_new') }}">New prompt</a>{% endif %}
-{% if principal.can('prompts:admin') %}<a href="{{ request.url_for('promptregistry_audit') }}">Audit</a>
-<a href="{{ request.url_for('promptregistry_import') }}">Import</a>
-<a href="{{ request.url_for('promptregistry_export') }}">Export</a>{% endif %}
+<header><a class="brand" href="{{ request.url_for('promptpivot_index') }}">promptpivot</a>
+<a href="{{ request.url_for('promptpivot_index') }}">Prompts</a>
+{% if principal.can('prompts:edit') %}<a href="{{ request.url_for('promptpivot_new') }}">New prompt</a>{% endif %}
+{% if principal.can('prompts:admin') %}<a href="{{ request.url_for('promptpivot_audit') }}">Audit</a>
+<a href="{{ request.url_for('promptpivot_import') }}">Import</a>
+<a href="{{ request.url_for('promptpivot_export') }}">Export</a>{% endif %}
 <span class="me">{{ principal.name or principal.id }} · env <b>{{ environment }}</b></span></header>
 <main>
 {% if ok %}<div class="flash ok">{{ ok }}</div>{% endif %}{% if err %}<div class="flash err">{{ err }}</div>{% endif %}

@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "promptregistry"
+name = "prompt-pivot"
 version = "0.1.0"
 description = "Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using your own PostgreSQL or MySQL database."
 readme = "README.md"
@@ -39,19 +39,19 @@ yaml = ["pyyaml>=6.0"]
 otel = ["opentelemetry-api>=1.20"]
 
 [project.scripts]
-promptregistry = "promptregistry.cli:main"
+prompt-pivot = "promptpivot.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Lasitha-Jayawardana/prompt-deck"
-Repository = "https://github.com/Lasitha-Jayawardana/prompt-deck"
-Issues = "https://github.com/Lasitha-Jayawardana/prompt-deck/issues"
-Changelog = "https://github.com/Lasitha-Jayawardana/prompt-deck/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Lasitha-Jayawardana/prompt-pivot"
+Repository = "https://github.com/Lasitha-Jayawardana/prompt-pivot"
+Issues = "https://github.com/Lasitha-Jayawardana/prompt-pivot/issues"
+Changelog = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/promptregistry"]
+packages = ["src/promptpivot"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/promptregistry", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+include = ["src/promptpivot", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 
 [dependency-groups]
 dev = [
@@ -71,12 +71,12 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-filterwarnings = ["error::DeprecationWarning:promptregistry"]
+filterwarnings = ["error::DeprecationWarning:promptpivot"]
 
 [tool.mypy]
 strict = true
 python_version = "3.10"
-files = ["src/promptregistry"]
+files = ["src/promptpivot"]
 [[tool.mypy.overrides]]
 module = ["yaml", "yaml.*", "alembic", "alembic.*", "opentelemetry", "opentelemetry.*"]
 ignore_missing_imports = true
@@ -88,9 +88,9 @@ target-version = "py310"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501", "B017", "B011"]
-"src/promptregistry/fastapi.py" = ["B008"]
+"src/promptpivot/fastapi.py" = ["B008"]
 "examples/*" = ["B008"]
-"src/promptregistry/migrations/*" = ["E402"]
+"src/promptpivot/migrations/*" = ["E402"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/promptregistry/migrations/script.py.mako" = "promptregistry/migrations/script.py.mako"
+"src/promptpivot/migrations/script.py.mako" = "promptpivot/migrations/script.py.mako"

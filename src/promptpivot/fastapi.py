@@ -1,7 +1,7 @@
 """FastAPI integration: ``admin_router`` serves a JSON API and a small server-rendered UI.
 
 Nothing is exposed unless the host mounts the router. Authentication is the host's: pass a
-dependency that returns a :class:`~promptregistry.Principal`.
+dependency that returns a :class:`~promptpivot.Principal`.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ from pydantic import BaseModel, Field
 from .errors import (
     PromptConflict,
     PromptNotFound,
+    PromptPivotError,
     PromptPolicyError,
-    PromptRegistryError,
     PromptRenderError,
     PromptStoreUnavailable,
     PromptValidationError,
@@ -35,18 +35,18 @@ from .registry import PromptRegistry
 from .templating import build_renderer
 
 PrincipalDep = Callable[..., "Principal | Awaitable[Principal]"]
-CSRF_COOKIE = "promptregistry_csrf"
-DEV_ENV = "PROMPTREGISTRY_DEV_UI"
+CSRF_COOKIE = "promptpivot_csrf"
+DEV_ENV = "PROMPTPIVOT_DEV_UI"
 
 
 def dev_principal() -> Principal:
     """Local-development principal with every permission.
 
-    Refuses to run unless the environment variable ``PROMPTREGISTRY_DEV_UI=1`` is set, so it cannot be
+    Refuses to run unless the environment variable ``PROMPTPIVOT_DEV_UI=1`` is set, so it cannot be
     deployed by accident. Never use it behind a public address.
     """
     if os.environ.get(DEV_ENV) != "1":
-        raise HTTPException(503, f"promptregistry dev_principal is disabled; set {DEV_ENV}=1 for local development")
+        raise HTTPException(503, f"promptpivot dev_principal is disabled; set {DEV_ENV}=1 for local development")
     return Principal(id="dev", name="Developer (dev mode)", permissions=frozenset({"prompts:admin"}))
 
 
@@ -60,7 +60,7 @@ _STATUS = {
 }
 
 _env = Environment(
-    loader=PackageLoader("promptregistry", "templates"),
+    loader=PackageLoader("promptpivot", "templates"),
     autoescape=select_autoescape(["html"]),
     trim_blocks=True,
     lstrip_blocks=True,
@@ -82,7 +82,7 @@ def _plain(obj: Any) -> Any:
 
 
 class _Route(APIRoute):
-    """Maps promptregistry errors to HTTP status codes for both the API and the UI."""
+    """Maps promptpivot errors to HTTP status codes for both the API and the UI."""
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
@@ -90,7 +90,7 @@ class _Route(APIRoute):
         async def wrapped(request: Request) -> Response:
             try:
                 return await handler(request)
-            except PromptRegistryError as e:
+            except PromptPivotError as e:
                 status = next((s for t, s in _STATUS.items() if isinstance(e, t)), 400)
                 if "/api/" in request.url.path or request.headers.get("accept", "").startswith("application/json"):
                     return JSONResponse({"error": type(e).__name__, "detail": str(e)}, status)
@@ -175,7 +175,7 @@ def admin_router(
     ``principal`` is a FastAPI dependency (sync or async) returning the acting
     :class:`Principal`; permission checks use its ``permissions`` set.
     """
-    r = APIRouter(route_class=_Route, include_in_schema=include_in_schema, tags=list(tags or ["promptregistry"]))
+    r = APIRouter(route_class=_Route, include_in_schema=include_in_schema, tags=list(tags or ["promptpivot"]))
 
     def need(permission: str) -> Callable[..., Awaitable[Principal]]:
         async def dep(p: Principal = Depends(principal)) -> Principal:
@@ -385,7 +385,7 @@ def _add_ui(
         return data
 
     def back(request: Request, name: str | None, locale: str | None = None, **flash: str | None) -> RedirectResponse:
-        url = request.url_for("promptregistry_prompt", name=name) if name else request.url_for("promptregistry_index")
+        url = request.url_for("promptpivot_prompt", name=name) if name else request.url_for("promptpivot_index")
         q = {k: v for k, v in {"locale": locale, **flash}.items() if v}
         return RedirectResponse(f"{url}?{urlencode(q)}" if q else str(url), status_code=303)
 
@@ -401,7 +401,7 @@ def _add_ui(
             raise PromptValidationError(f"{what}: must be a JSON object")
         return data
 
-    @r.get("/", response_class=HTMLResponse, name="promptregistry_index")
+    @r.get("/", response_class=HTMLResponse, name="promptpivot_index")
     async def index(
         request: Request, q: str | None = None, tag: str | None = None, p: Principal = Depends(need("prompts:read"))
     ) -> HTMLResponse:
@@ -412,11 +412,11 @@ def _add_ui(
             request, "index.html", p, prompts=prompts, labels=labels, q=q or "", tag=tag or "", open_crs=open_crs
         )
 
-    @r.get("/new", response_class=HTMLResponse, name="promptregistry_new")
+    @r.get("/new", response_class=HTMLResponse, name="promptpivot_new")
     async def new_form(request: Request, p: Principal = Depends(need("prompts:edit"))) -> HTMLResponse:
         return page(request, "new.html", p)
 
-    @r.post("/new", name="promptregistry_create")
+    @r.post("/new", name="promptpivot_create")
     async def create(
         request: Request, p: Principal = Depends(need("prompts:edit")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -431,7 +431,7 @@ def _add_ui(
         )
         return back(request, f["name"].strip(), ok="Prompt created. Save a first version below.")
 
-    @r.get("/audit", response_class=HTMLResponse, name="promptregistry_audit")
+    @r.get("/audit", response_class=HTMLResponse, name="promptpivot_audit")
     async def audit(
         request: Request,
         target: str | None = None,
@@ -441,16 +441,16 @@ def _add_ui(
         rows = await registry.aaudit(target_id=target or None, actor=actor or None)
         return page(request, "audit.html", p, rows=rows, target=target or "", actor=actor or "")
 
-    @r.get("/export.json", name="promptregistry_export")
+    @r.get("/export.json", name="promptpivot_export")
     async def export_json(_: Principal = Depends(need("prompts:admin"))) -> JSONResponse:
         data = await registry.aexport()
-        return JSONResponse(data, headers={"content-disposition": 'attachment; filename="promptregistry-export.json"'})
+        return JSONResponse(data, headers={"content-disposition": 'attachment; filename="promptpivot-export.json"'})
 
-    @r.get("/import", response_class=HTMLResponse, name="promptregistry_import")
+    @r.get("/import", response_class=HTMLResponse, name="promptpivot_import")
     async def import_form(request: Request, p: Principal = Depends(need("prompts:admin"))) -> HTMLResponse:
         return page(request, "import.html", p)
 
-    @r.post("/import", name="promptregistry_import_post")
+    @r.post("/import", name="promptpivot_import_post")
     async def import_post(
         request: Request, p: Principal = Depends(need("prompts:admin")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -463,21 +463,21 @@ def _add_ui(
         counts = await registry.aimport_prompts(data, actor=p.id, set_labels=f.get("labels") == "1")
         return back(request, None, ok=", ".join(f"{v} {k}" for k, v in counts.items()) + " imported.")
 
-    @r.post("/cr/{cr_id}/approve", name="promptregistry_approve")
+    @r.post("/cr/{cr_id}/approve", name="promptpivot_approve")
     async def approve(
         request: Request, cr_id: int, p: Principal = Depends(need("prompts:approve")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
         cr = await registry.aapprove(cr_id, actor=p.id, comment=f.get("comment") or None)
         return back(request, cr.name, cr.locale, ok=f"Change request #{cr.id} approved.")
 
-    @r.post("/cr/{cr_id}/reject", name="promptregistry_reject")
+    @r.post("/cr/{cr_id}/reject", name="promptpivot_reject")
     async def reject(
         request: Request, cr_id: int, p: Principal = Depends(need("prompts:approve")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
         cr = await registry.areject(cr_id, actor=p.id, comment=f.get("comment") or None)
         return back(request, cr.name, cr.locale, ok=f"Change request #{cr.id} rejected.")
 
-    @r.get("/p/{name:path}/diff", response_class=HTMLResponse, name="promptregistry_diff")
+    @r.get("/p/{name:path}/diff", response_class=HTMLResponse, name="promptpivot_diff")
     async def diff(
         request: Request,
         name: str,
@@ -498,7 +498,7 @@ def _add_ui(
             diff=text or "(no differences)",
         )
 
-    @r.post("/p/{name:path}/versions", name="promptregistry_version")
+    @r.post("/p/{name:path}/versions", name="promptpivot_version")
     async def save_version(
         request: Request, name: str, p: Principal = Depends(need("prompts:edit")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -525,7 +525,7 @@ def _add_ui(
         msg = f"Saved v{rec.version} ({rec.locale})." + (f" Warning: {rec.warning}" if rec.warning else "")
         return back(request, name, rec.locale, ok=msg)
 
-    @r.post("/p/{name:path}/metadata", name="promptregistry_metadata")
+    @r.post("/p/{name:path}/metadata", name="promptpivot_metadata")
     async def save_metadata(
         request: Request, name: str, p: Principal = Depends(need("prompts:edit")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -534,7 +534,7 @@ def _add_ui(
         await registry.aupdate_metadata(name, loads(f.get("metadata", ""), "metadata"), actor=p.id)
         return back(request, name, f.get("locale"), ok="Metadata saved.")
 
-    @r.post("/p/{name:path}/publish", name="promptregistry_publish")
+    @r.post("/p/{name:path}/publish", name="promptpivot_publish")
     async def publish(
         request: Request, name: str, p: Principal = Depends(principal), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -553,7 +553,7 @@ def _add_ui(
         )
         return back(request, name, locale, ok=f"{label} ({rec.locale}) now points to v{rec.version}.")
 
-    @r.post("/p/{name:path}/request", name="promptregistry_request")
+    @r.post("/p/{name:path}/request", name="promptpivot_request")
     async def request_change(
         request: Request, name: str, p: Principal = Depends(need("prompts:edit")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -567,7 +567,7 @@ def _add_ui(
         )
         return back(request, name, cr.locale, ok=f"Change request #{cr.id} opened for {cr.target_label}.")
 
-    @r.post("/p/{name:path}/rollback", name="promptregistry_rollback")
+    @r.post("/p/{name:path}/rollback", name="promptpivot_rollback")
     async def rollback(
         request: Request, name: str, p: Principal = Depends(principal), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
@@ -575,7 +575,7 @@ def _add_ui(
         rec = await registry.arollback(name, f["label"], actor=p.id, locale=f.get("locale") or None)
         return back(request, name, rec.locale, ok=f"Rolled {f['label']} ({rec.locale}) back to v{rec.version}.")
 
-    @r.post("/p/{name:path}/preview", response_class=HTMLResponse, name="promptregistry_preview")
+    @r.post("/p/{name:path}/preview", response_class=HTMLResponse, name="promptpivot_preview")
     async def preview(
         request: Request, name: str, p: Principal = Depends(need("prompts:read")), f: dict[str, str] = Depends(form)
     ) -> HTMLResponse:
@@ -591,14 +591,14 @@ def _add_ui(
             rendered=rendered if isinstance(rendered, str) else _plain(rendered),
         )
 
-    @r.post("/p/{name:path}/archive", name="promptregistry_archive")
+    @r.post("/p/{name:path}/archive", name="promptpivot_archive")
     async def archive(
         request: Request, name: str, p: Principal = Depends(need("prompts:admin")), f: dict[str, str] = Depends(form)
     ) -> RedirectResponse:
         await registry.aarchive(name, actor=p.id, archived=f.get("undo") != "1")
         return back(request, None, ok=f"{name} archived." if f.get("undo") != "1" else f"{name} restored.")
 
-    @r.get("/p/{name:path}", response_class=HTMLResponse, name="promptregistry_prompt")
+    @r.get("/p/{name:path}", response_class=HTMLResponse, name="promptpivot_prompt")
     async def prompt_page(
         request: Request, name: str, locale: str | None = None, p: Principal = Depends(need("prompts:read"))
     ) -> HTMLResponse:

@@ -820,7 +820,7 @@ class Store:
                     "locales": locales,
                 }
             )
-        return {"promptregistry": 1, "prompts": out}
+        return {"promptpivot": 1, "prompts": out}
 
     def import_all(
         self, conn: Connection, data: dict[str, Any], actor: str, *, set_labels: bool = True

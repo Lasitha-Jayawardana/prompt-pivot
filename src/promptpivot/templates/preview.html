@@ -1,4 +1,4 @@
 {% extends "base.html" %}{% block title %}preview {{ name }}{% endblock %}{% block body %}
-<h1><a href="{{ request.url_for('promptregistry_prompt', name=name) }}?locale={{ locale }}">{{ name }}</a> · v{{ version }} ({{ locale }}) preview</h1>
+<h1><a href="{{ request.url_for('promptpivot_prompt', name=name) }}?locale={{ locale }}">{{ name }}</a> · v{{ version }} ({{ locale }}) preview</h1>
 {% if rendered is string %}<pre>{{ rendered }}</pre>{% else %}{% for m in rendered %}<p><b>{{ m.role }}</b></p><pre>{{ m.content }}</pre>{% endfor %}{% endif %}
 {% endblock %}

@@ -2,9 +2,9 @@
 <h1>Prompts</h1>
 <form method="get" class="row" style="margin:10px 0 16px"><input name="q" placeholder="search name" value="{{ q }}"><input name="tag" placeholder="tag" value="{{ tag }}"><button>Filter</button></form>
 {% if open_crs %}<div class="flash ok">{{ open_crs|length }} change request(s) waiting for review:
-{% for c in open_crs %}<a href="{{ request.url_for('promptregistry_prompt', name=c.name) }}?locale={{ c.locale }}">#{{ c.id }} {{ c.name }} v{{ c.version }} → {{ c.target_label }}</a>{{ ", " if not loop.last }}{% endfor %}</div>{% endif %}
+{% for c in open_crs %}<a href="{{ request.url_for('promptpivot_prompt', name=c.name) }}?locale={{ c.locale }}">#{{ c.id }} {{ c.name }} v{{ c.version }} → {{ c.target_label }}</a>{{ ", " if not loop.last }}{% endfor %}</div>{% endif %}
 <table><tr><th>Name</th><th>Type</th><th>Tags</th><th>Labels</th><th>Updated</th></tr>
-{% for p in prompts %}<tr><td><a href="{{ request.url_for('promptregistry_prompt', name=p.name) }}">{{ p.name }}</a>{% if p.description %}<div class="mut">{{ p.description }}</div>{% endif %}</td>
+{% for p in prompts %}<tr><td><a href="{{ request.url_for('promptpivot_prompt', name=p.name) }}">{{ p.name }}</a>{% if p.description %}<div class="mut">{{ p.description }}</div>{% endif %}</td>
 <td>{{ p.type }}</td><td>{% for t in p.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
 <td>{% for l in labels[p.name] if l.label != 'latest' %}<span class="lbl {{ l.label }}">{{ l.label }}{% if l.locale != default_locale %}·{{ l.locale }}{% endif %} v{{ l.version }}</span>{% endfor %}</td>
 <td class="mut">{{ p.updated_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>

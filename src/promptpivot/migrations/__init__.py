@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from ..schema import DEFAULT_PREFIX, build_tables
 
-log = logging.getLogger("promptregistry")
+log = logging.getLogger("promptpivot")
 HERE = Path(__file__).parent
 
 
@@ -34,7 +34,7 @@ def upgrade_sync(connection: Connection, prefix: str = DEFAULT_PREFIX, revision:
     except ImportError:
         log.warning(
             "alembic is not installed; creating tables with create_all "
-            "(install promptregistry[alembic] for versioned migrations)"
+            "(install promptpivot[alembic] for versioned migrations)"
         )
         build_tables(prefix).metadata.create_all(connection)
         return "create_all"

@@ -4,7 +4,7 @@ from alembic import context
 
 config = context.config
 connection = config.attributes["connection"]
-prefix = config.attributes.get("prefix", "promptregistry_")
+prefix = config.attributes.get("prefix", "promptpivot_")
 context.configure(
     connection=connection,
     target_metadata=None,

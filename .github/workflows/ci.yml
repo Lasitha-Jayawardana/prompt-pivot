@@ -22,7 +22,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv venv --python ${{ matrix.python }} && uv pip install -e ".[postgres,mysql]" --group dev
       - run: .venv/bin/ruff check . && .venv/bin/mypy
-      - run: .venv/bin/pytest --cov=promptregistry --cov-fail-under=90
+      - run: .venv/bin/pytest --cov=promptpivot --cov-fail-under=90
         env:
-          PROMPTREGISTRY_TEST_POSTGRES_URL: postgresql+psycopg://pd:pd@localhost:5432/pd
-          PROMPTREGISTRY_TEST_MYSQL_URL: mysql+pymysql://root:pd@localhost:3306/pd
+          PROMPTPIVOT_TEST_POSTGRES_URL: postgresql+psycopg://pd:pd@localhost:5432/pd
+          PROMPTPIVOT_TEST_MYSQL_URL: mysql+pymysql://root:pd@localhost:3306/pd

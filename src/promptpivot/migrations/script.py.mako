@@ -12,9 +12,9 @@ branch_labels = ${repr(branch_labels)}
 depends_on = ${repr(depends_on)}
 
 
-def upgrade(prefix: str = "promptregistry_") -> None:
+def upgrade(prefix: str = "promptpivot_") -> None:
     ${upgrades if upgrades else "pass"}
 
 
-def downgrade(prefix: str = "promptregistry_") -> None:
+def downgrade(prefix: str = "promptpivot_") -> None:
     ${downgrades if downgrades else "pass"}
