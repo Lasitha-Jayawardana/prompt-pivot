@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-pivot"
-version = "0.1.0"
+version = "0.1.1"
 description = "Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using your own PostgreSQL or MySQL database."
 readme = "README.md"
 license = "Apache-2.0"
@@ -25,7 +25,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "sqlalchemy>=2.0",
+  "sqlalchemy[asyncio]>=2.0",
   "pydantic>=2.0",
   "jinja2>=3.1",
   "fastapi>=0.110",

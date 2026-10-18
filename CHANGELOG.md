@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 (2026-10-19)
+
+Fix: a plain `pip install prompt-pivot` failed to import because SQLAlchemy's asyncio support needs
+`greenlet`; the dependency is now `sqlalchemy[asyncio]`.
+
 ## 0.1.0 (2026-10-19)
 
 Distribution and CLI name `prompt-pivot`, import name `promptpivot` (earlier working names were
