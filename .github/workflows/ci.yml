@@ -1,0 +1,28 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: pd, POSTGRES_PASSWORD: pd, POSTGRES_DB: pd }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8
+        env: { MYSQL_ROOT_PASSWORD: pd, MYSQL_DATABASE: pd }
+        ports: ["3306:3306"]
+        options: --health-cmd "mysqladmin ping -ppd" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv venv --python ${{ matrix.python }} && uv pip install -e ".[postgres,mysql]" --group dev
+      - run: .venv/bin/ruff check . && .venv/bin/mypy
+      - run: .venv/bin/pytest --cov=promptdeck --cov-fail-under=90
+        env:
+          PROMPTDECK_TEST_POSTGRES_URL: postgresql+psycopg://pd:pd@localhost:5432/pd
+          PROMPTDECK_TEST_MYSQL_URL: mysql+pymysql://root:pd@localhost:3306/pd
