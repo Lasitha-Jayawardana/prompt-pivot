@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-pivot"
-version = "0.1.1"
+version = "0.1.2"
 description = "Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using your own PostgreSQL or MySQL database."
 readme = "README.md"
 license = "Apache-2.0"
@@ -33,7 +33,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["asyncpg>=0.29", "psycopg[binary]>=3.1"]
-mysql = ["aiomysql>=0.2", "pymysql>=1.1"]
+mysql = ["aiomysql>=0.2", "pymysql[rsa]>=1.1"]
 alembic = ["alembic>=1.13"]
 yaml = ["pyyaml>=6.0"]
 otel = ["opentelemetry-api>=1.20"]

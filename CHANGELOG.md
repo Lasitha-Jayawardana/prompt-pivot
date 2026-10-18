@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 (2026-10-19)
+
+Fix: the `[mysql]` extra now includes `pymysql[rsa]` (the `cryptography` package), which MySQL 8's
+default `caching_sha2_password` authentication requires for the async driver.
+
 ## 0.1.1 (2026-10-19)
 
 Fix: a plain `pip install prompt-pivot` failed to import because SQLAlchemy's asyncio support needs
