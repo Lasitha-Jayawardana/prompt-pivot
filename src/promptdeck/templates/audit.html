@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Audit{% endblock %}{% block body %}
+<h1>Audit log</h1>
+<form method="get" class="row" style="margin:10px 0 16px"><input name="target" placeholder="target (prompt name)" value="{{ target }}"><input name="actor" placeholder="actor" value="{{ actor }}"><button>Filter</button></form>
+<table><tr><th>At</th><th>Actor</th><th>Action</th><th>Target</th><th>Change</th></tr>
+{% for r in rows %}<tr><td class="mut">{{ r.at.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ r.actor }}</td><td>{{ r.action }}{% if r.reason %}<div class="mut">{{ r.reason }}</div>{% endif %}</td><td>{{ r.target_type }} {{ r.target_id }}</td>
+<td>{% if r.before or r.after %}<details><summary>show</summary><pre>{{ r.before|json }}
+→ {{ r.after|json }}</pre></details>{% endif %}</td></tr>{% endfor %}</table>
+{% endblock %}

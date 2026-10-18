@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}New prompt{% endblock %}{% block body %}
+<h1>New prompt</h1>
+<form method="post" action="{{ request.url_for('promptdeck_create') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Name (hierarchical, e.g. support/triage/classify)</label><input name="name" required pattern="[A-Za-z0-9_.\-]+(/[A-Za-z0-9_.\-]+)*" style="width:100%">
+<div class="row"><div><label>Type</label><select name="type"><option value="text">text</option><option value="chat">chat</option></select></div>
+<div><label>Tags (comma separated)</label><input name="tags" style="width:100%"></div></div>
+<label>Description</label><input name="description" style="width:100%">
+<label>Metadata (JSON object: owner, team, use case, …)</label><textarea name="metadata" class="mono" style="min-height:80px">{}</textarea>
+<p><button class="pri">Create</button></p></form>
+{% endblock %}

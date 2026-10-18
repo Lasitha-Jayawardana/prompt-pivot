@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Import{% endblock %}{% block body %}
+<h1>Import prompts</h1>
+<p class="mut">Paste the JSON produced by <a href="{{ request.url_for('promptdeck_export') }}">Export</a>, <code>promptdeck export</code> or <code>GET api/export</code>.
+Prompts that do not exist are created; versions already present (same template, format and config) are skipped; everything else is appended as new versions.</p>
+<form method="post" action="{{ request.url_for('promptdeck_import_post') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+<textarea name="data" class="mono" style="min-height:320px" required placeholder='{"promptdeck": 1, "prompts": [{"name": "support/agent", "type": "chat", "locales": {"en": {"versions": [{"version": 1, "format": "python", "template": [{"role": "user", "content": "{question}"}], "config": {}}], "labels": {"staging": 1}}}}]}'></textarea>
+<p><label style="display:inline"><input type="checkbox" name="labels" value="1" checked> also set the labels listed in the file (production labels are set directly, without a change request)</label></p>
+<p><button class="pri">Import</button></p></form>
+{% endblock %}
