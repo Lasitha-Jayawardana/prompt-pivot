@@ -149,6 +149,8 @@ class VersionRecord:
     message: str
     created_by: str
     created_at: datetime
+    notes: dict[str, Any] | None = None
+    """Optional per-version notes (ticket link, reviewer remarks). Free-form JSON."""
     warning: str | None = None
     """Set when a locale variant's variables differ from the default locale's production version."""
 

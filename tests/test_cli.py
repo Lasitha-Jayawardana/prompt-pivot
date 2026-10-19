@@ -66,3 +66,37 @@ def test_migrations_fallback_without_alembic(tmp_path, monkeypatch):
     engine = create_engine(f"sqlite:///{tmp_path}/m.db")
     assert upgrade(engine, "zz_") == "create_all"
     assert "zz_prompts" in inspect(engine).get_table_names()
+
+
+def test_migration_from_initial_schema(tmp_path):
+    """A database at revision 0001 (no notes column) is upgraded in place; a fresh one is stamped head."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import create_engine, inspect, text
+
+    from promptpivot.migrations import HERE
+    from promptpivot.schema import build_tables
+
+    url = f"sqlite:///{tmp_path}/old.db"
+    engine = create_engine(url)
+    build_tables("zz_").metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE zz_versions DROP COLUMN notes"))
+        conn.execute(text("CREATE TABLE zz_alembic_version (version_num VARCHAR(32) NOT NULL)"))
+        conn.execute(text("INSERT INTO zz_alembic_version VALUES ('0001')"))
+    assert "notes" not in {c["name"] for c in inspect(engine).get_columns("zz_versions")}
+    assert upgrade(engine, "zz_") == "alembic"
+    assert "notes" in {c["name"] for c in inspect(engine).get_columns("zz_versions")}
+    assert upgrade(engine, "zz_") == "alembic"  # idempotent
+    with engine.begin() as conn:
+        assert conn.execute(text("SELECT version_num FROM zz_alembic_version")).scalar() == "0002"
+    # tables created by create_all without alembic get stamped and upgraded too
+    url2 = f"sqlite:///{tmp_path}/plain.db"
+    e2 = create_engine(url2)
+    build_tables("zz_").metadata.create_all(e2)
+    assert upgrade(e2, "zz_") == "alembic"
+    with e2.begin() as conn:
+        assert conn.execute(text("SELECT version_num FROM zz_alembic_version")).scalar() == "0002"
+    cfg = Config()
+    cfg.set_main_option("script_location", str(HERE))
+    assert ScriptDirectory.from_config(cfg).get_current_head() == "0002"

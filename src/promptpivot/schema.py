@@ -21,6 +21,9 @@ from sqlalchemy import (
 
 DEFAULT_PREFIX = "promptpivot_"
 BigId = BigInteger().with_variant(Integer(), "sqlite")
+# Prompt names are case-sensitive everywhere. MySQL's default collation is case-insensitive, so
+# the name column gets a binary collation there (PostgreSQL and SQLite compare bytes already).
+NameString = String(255).with_variant(String(255, collation="utf8mb4_bin"), "mysql", "mariadb")
 
 
 @dataclass(frozen=True)
@@ -43,7 +46,7 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         f"{p}prompts",
         md,
         Column("id", BigId, primary_key=True, autoincrement=True),
-        Column("name", String(255), nullable=False, unique=True),
+        Column("name", NameString, nullable=False, unique=True),
         Column("type", String(8), nullable=False),
         Column("description", Text),
         Column("tags", JSON, nullable=False),
@@ -65,6 +68,7 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         Column("variables", JSON, nullable=False),
         Column("checksum", String(32), nullable=False),
         Column("message", Text, nullable=False),
+        Column("notes", JSON),
         Column("created_by", String(255), nullable=False),
         Column("created_at", DateTime(timezone=True), nullable=False),
         UniqueConstraint("prompt_id", "locale", "version", name=f"uq_{p}versions"),

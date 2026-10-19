@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Per-version `notes` (JSON) in the API, UI, CLI export/import and `create_version(notes=...)`.
+- Prompt names are case-sensitive on MySQL too (binary collation on the name column).
+- List page and `GET api/prompts` filter on top-level metadata (`metadata=owner=cx,team=tier1`).
+- Locale tabs flag variants not updated since the default locale's last production change;
+  `GET api/prompts/{name}` returns `stale_locales`; `registry.stale_locales(name)`.
+- Migration `0002`; `migrate` now stamps fresh databases at head and upgrades existing ones.
+
 ## 0.1.3 (2026-10-19)
 
 - `python` format: only `{name}` / `{name:spec}` with a plain identifier is a variable; every other

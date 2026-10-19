@@ -347,3 +347,56 @@ def test_rollback_target_and_in_memory():
     reg.rollback("r", "staging")
     assert reg._run(reg.store.rollback_target, "r", "staging") == 2  # undo of the undo
     assert reg.audit(limit=1)[0].actor == "me"
+
+
+def test_version_notes_roundtrip(registry: PromptRegistry):
+    seed(registry)
+    rec = registry.create_version(
+        "support/agent", "v2 {customer_name}", message="v2", notes={"ticket": "https://x/PROJ-1", "reviewer": "bob"}
+    )
+    assert rec.notes == {"ticket": "https://x/PROJ-1", "reviewer": "bob"}
+    assert registry.create_version("support/agent", "v3", message="v3", notes={}).notes is None
+    assert [v.notes for v in registry.history("support/agent", "en")][:2] == [None, rec.notes]
+    data = registry.export()
+    data["prompts"][0]["name"] = "copy/agent"
+    registry.import_prompts(data)
+    assert [v.notes for v in registry.history("copy/agent", "en") if v.version == 2] == [rec.notes]
+
+
+def test_metadata_filter_matches_text(registry: PromptRegistry):
+    registry.create_prompt("a", metadata={"owner": "cx", "tier": 1, "flag": True})
+    registry.create_prompt("b", metadata={"owner": "fin"})
+    assert [p.name for p in registry.list_prompts(metadata={"owner": "cx"})] == ["a"]
+    assert [p.name for p in registry.list_prompts(metadata={"tier": "1"})] == ["a"]  # strings from the UI/API
+    assert [p.name for p in registry.list_prompts(metadata={"tier": 1, "owner": "cx"})] == ["a"]
+    assert registry.list_prompts(metadata={"owner": "cx", "tier": "2"}) == []
+    assert registry.list_prompts(metadata={"missing": ""}) == []
+
+
+def test_stale_locales(registry: PromptRegistry):
+    seed(registry)
+    assert registry.stale_locales("support/agent") == []
+    registry.create_version("support/agent", "Bonjour {customer_name} {plan}", message="fr", locale="fr")
+    registry.create_version("support/agent", "Hallo {customer_name} {plan}", message="de", locale="de")
+    assert registry.stale_locales("support/agent") == []  # translations are newer than en production
+    time.sleep(0.01)
+    registry.create_version("support/agent", "v2 {customer_name} {plan}", message="v2")
+    assert registry.stale_locales("support/agent") == []  # not in production yet
+    registry.publish("support/agent", 2, "production", force=True)
+    assert registry.stale_locales("support/agent") == ["de", "fr"]
+    time.sleep(0.01)
+    registry.create_version("support/agent", "Bonjour v2 {customer_name} {plan}", message="fr2", locale="fr")
+    assert registry.stale_locales("support/agent") == ["de"]
+
+
+def test_prompt_names_are_case_sensitive(registry: PromptRegistry):
+    """Needs a binary collation on MySQL; PostgreSQL and SQLite compare bytes already."""
+    registry.create_prompt("Support/Agent")
+    registry.create_prompt("support/agent")
+    assert [p.name for p in registry.list_prompts()] == ["Support/Agent", "support/agent"]
+    registry.create_version("Support/Agent", "upper", message="m")
+    registry.create_version("support/agent", "lower", message="m")
+    registry.publish("Support/Agent", 1, "staging")
+    registry.publish("support/agent", 1, "staging")
+    assert registry.get("Support/Agent", label="staging").compile() == "upper"
+    assert registry.get("support/agent", label="staging").compile() == "lower"

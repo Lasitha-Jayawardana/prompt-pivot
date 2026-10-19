@@ -39,6 +39,28 @@ def _pk(res: CursorResult[Any]) -> int:
     return int(pk[0])
 
 
+def _meta_match(stored: Any, wanted: Any) -> bool:
+    """Top-level metadata filter: equal values, or equal text (the UI and API pass strings)."""
+    return stored == wanted or (stored is not None and str(stored) == str(wanted))
+
+
+def stale_locales(versions: Sequence[VersionRecord], labels: Sequence[LabelRecord], default_locale: str) -> list[str]:
+    """Locales whose newest version predates the default locale's current production version."""
+    prod = next((lb for lb in labels if lb.locale == default_locale and lb.label == "production"), None)
+    if prod is None:
+        return []
+    by_id = {v.id: v for v in versions}
+    if prod.version_id not in by_id:
+        return []
+    prod_at = by_id[prod.version_id].created_at
+    out = []
+    for loc in sorted({v.locale for v in versions} - {default_locale}):
+        newest = max(v.created_at for v in versions if v.locale == loc)
+        if newest < prod_at:
+            out.append(loc)
+    return out
+
+
 def locale_candidates(locale: str, default: str) -> tuple[str, ...]:
     """``pt-BR`` -> (``pt-BR``, ``pt``, ``en``). Exact, then base language, then default."""
     out = [locale]
@@ -134,6 +156,7 @@ class Store:
             row.message,
             row.created_by,
             row.created_at,
+            dict(row.notes) if row.notes else None,
         )
 
     # -- read path -------------------------------------------------------------------------------
@@ -217,7 +240,7 @@ class Store:
         if tag:
             out = [r for r in out if tag in r.tags]
         if metadata:
-            out = [r for r in out if all(r.metadata.get(k) == v for k, v in metadata.items())]
+            out = [r for r in out if all(_meta_match(r.metadata.get(k), v) for k, v in metadata.items())]
         return out
 
     def update_metadata(
@@ -277,6 +300,7 @@ class Store:
         locale: str | None = None,
         config: dict[str, Any] | None = None,
         variables: Sequence[str] | None = None,
+        notes: dict[str, Any] | None = None,
     ) -> VersionRecord:
         """Save an immutable version and move ``latest``.
 
@@ -322,6 +346,7 @@ class Store:
                     variables=list(vars_),
                     checksum=checksum(template, format, config),
                     message=message,
+                    notes=notes or None,
                     created_by=actor,
                     created_at=now,
                 )
@@ -803,6 +828,7 @@ class Store:
                         "config": v.config,
                         "variables": list(v.variables),
                         "message": v.message,
+                        "notes": v.notes,
                         "created_by": v.created_by,
                         "created_at": v.created_at.isoformat(),
                     }
@@ -860,6 +886,7 @@ class Store:
                         locale=locale,
                         config=v.get("config") or {},
                         variables=v.get("variables"),
+                        notes=v.get("notes"),
                     )
                     existing[cs] = mapping[v["version"]] = rec.version
                     counts["versions"] += 1

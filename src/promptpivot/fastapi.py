@@ -32,6 +32,7 @@ from .errors import (
 )
 from .models import Principal
 from .registry import PromptRegistry
+from .store import stale_locales
 from .templating import build_renderer
 
 PrincipalDep = Callable[..., "Principal | Awaitable[Principal]"]
@@ -121,6 +122,7 @@ class VersionBody(BaseModel):
     locale: str | None = None
     config: dict[str, Any] = Field(default_factory=dict)
     message: str = ""
+    notes: dict[str, Any] | None = None
 
 
 class MetadataBody(BaseModel):
@@ -199,10 +201,16 @@ def admin_router(
     async def api_list(
         q: str | None = None,
         tag: str | None = None,
+        metadata: str | None = None,
         include_archived: bool = False,
         _: Principal = Depends(need("prompts:read")),
     ) -> Any:
-        return _plain(await registry.alist_prompts(q=q, tag=tag, include_archived=include_archived))
+        """``metadata`` filters on top-level keys: ``owner=cx,team=tier1``."""
+        return _plain(
+            await registry.alist_prompts(
+                q=q, tag=tag, metadata=_parse_meta(metadata), include_archived=include_archived
+            )
+        )
 
     @r.post("/api/prompts", status_code=201, dependencies=[Depends(json_only)])
     async def api_create(body: CreatePromptBody, p: Principal = Depends(need("prompts:edit"))) -> Any:
@@ -261,6 +269,7 @@ def admin_router(
             actor=p.id,
             locale=body.locale,
             config=body.config,
+            notes=body.notes,
         )
         return _plain(rec)
 
@@ -311,15 +320,29 @@ def admin_router(
 
     @r.get("/api/prompts/{name:path}")
     async def api_get(name: str, _: Principal = Depends(need("prompts:read"))) -> Any:
+        versions, labels = await registry.ahistory(name), await registry.alabels(name)
         return {
             "prompt": _plain(await registry.aget_prompt(name)),
-            "labels": _plain(await registry.alabels(name)),
-            "versions": _plain(await registry.ahistory(name)),
+            "labels": _plain(labels),
+            "versions": _plain(versions),
+            "stale_locales": stale_locales(versions, labels, registry.default_locale),
         }
 
     if ui:
         _add_ui(r, registry, principal, need)
     return r
+
+
+def _parse_meta(text: str | None) -> dict[str, str] | None:
+    """``owner=cx, team=tier1`` -> {"owner": "cx", "team": "tier1"}."""
+    if not text:
+        return None
+    out = {}
+    for part in text.split(","):
+        k, _, v = part.partition("=")
+        if k.strip():
+            out[k.strip()] = v.strip()
+    return out or None
 
 
 def _can_publish(p: Principal, label: str, force: bool) -> None:
@@ -403,13 +426,25 @@ def _add_ui(
 
     @r.get("/", response_class=HTMLResponse, name="promptpivot_index")
     async def index(
-        request: Request, q: str | None = None, tag: str | None = None, p: Principal = Depends(need("prompts:read"))
+        request: Request,
+        q: str | None = None,
+        tag: str | None = None,
+        metadata: str | None = None,
+        p: Principal = Depends(need("prompts:read")),
     ) -> HTMLResponse:
-        prompts = await registry.alist_prompts(q=q, tag=tag)
+        prompts = await registry.alist_prompts(q=q, tag=tag, metadata=_parse_meta(metadata))
         labels = await registry._arun(registry.store.labels_many, [x.name for x in prompts])
         open_crs = await registry.alist_change_requests(status="open")
         return page(
-            request, "index.html", p, prompts=prompts, labels=labels, q=q or "", tag=tag or "", open_crs=open_crs
+            request,
+            "index.html",
+            p,
+            prompts=prompts,
+            labels=labels,
+            q=q or "",
+            tag=tag or "",
+            metadata=metadata or "",
+            open_crs=open_crs,
         )
 
     @r.get("/new", response_class=HTMLResponse, name="promptpivot_new")
@@ -521,6 +556,7 @@ def _add_ui(
             actor=p.id,
             locale=f.get("locale") or None,
             config=loads(f.get("config", ""), "config"),
+            notes=loads(f.get("notes", ""), "notes") or None,
         )
         msg = f"Saved v{rec.version} ({rec.locale})." + (f" Warning: {rec.warning}" if rec.warning else "")
         return back(request, name, rec.locale, ok=msg)
@@ -607,6 +643,7 @@ def _add_ui(
         labels = await registry.alabels(name)
         crs = [c for c in await registry.alist_change_requests(name) if c.status in ("open", "approved")]
         locales = sorted({v.locale for v in versions} | {registry.default_locale})
+        stale = set(stale_locales(versions, labels, registry.default_locale))
         locale = locale if locale in locales or locale else registry.default_locale
         here = [v for v in versions if v.locale == locale]
         latest = here[0] if here else None
@@ -646,4 +683,5 @@ def _add_ui(
             tags=", ".join(prompt.tags),
             current=current,
             rollback_to=rollback_to,
+            stale=stale,
         )

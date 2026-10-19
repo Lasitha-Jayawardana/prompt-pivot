@@ -75,8 +75,8 @@ still resolve.
 ### 3.2 Versions and template formats
 
 **What.** Every save creates the next version number for that locale. A version stores the
-template, format, config, detected variables, commit message, author, timestamp and checksum.
-Versions are never edited or deleted.
+template, format, config, detected variables, commit message, author, timestamp, checksum and
+optional `notes` (any JSON: a ticket link, reviewer remarks). Versions are never edited or deleted.
 
 Two formats, chosen per version:
 
@@ -169,8 +169,9 @@ p.locale, p.requested_locale                        # 'fr', 'fr-CA'
 Saving a locale whose variables differ from the default locale's production version returns a
 warning (shown in the UI flash), so a translation cannot silently drop a variable.
 
-**UI.** Locale tabs under the prompt title; *+ locale* asks for a tag and opens an empty tab to
-save the first version into.
+**UI.** Locale tabs under the prompt title; *+ locale* takes a tag and opens an empty tab to save
+the first version into. A tab shows ⚠ when that locale has not been updated since the default
+locale's production version last changed, so translations that fell behind are visible at a glance.
 
 **Use cases.** Serve French users a native prompt and everyone else English, with one call site.
 
@@ -349,8 +350,8 @@ registry's environment. Only links the user is allowed to use are shown.
 
 ![Prompt list](images/list.jpg)
 
-Search by name substring and tag. Each row shows type, tags and the current version of every
-non-`latest` label per locale (`production v1`, `staging v2`, `staging·fr v1`). Open change requests
+Search by name substring, tag and top-level metadata (`owner=cx, team=tier1`). Each row shows
+type, tags and the current version of every non-`latest` label per locale (`production v1`, `staging v2`, `staging·fr v1`). Open change requests
 are summarised at the top with links.
 
 ### New prompt

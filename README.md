@@ -107,7 +107,7 @@ for a runnable demo (`uvicorn examples.app:app --reload`).
 | Concept | Meaning |
 | --- | --- |
 | **Prompt** | A named, hierarchical unit (`support/triage/classify`) of type `text` or `chat`, with tags and free-form JSON metadata. |
-| **Version** | Immutable snapshot of template, format (`python` or `jinja`), config, variables, commit message and author. Each save creates the next number. |
+| **Version** | Immutable snapshot of template, format (`python` or `jinja`), config, variables, commit message, author and optional `notes` (ticket link, reviewer remarks). Each save creates the next number. |
 | **Locale** | BCP 47 variant (`en`, `fr`, `pt-BR`) of a prompt, with its own versions and labels. Resolution: exact tag, base language, then the default locale. |
 | **Label** | A named pointer to one version of one locale: `production`, `staging`, `latest` (moves on save) or any custom name. Code reads labels, never raw version numbers. |
 | **Change request** | Required to move a protected label (default: `production`). One approver, who must differ from the author. |
@@ -180,7 +180,7 @@ Available on the registry in sync and async forms; writes take `actor=` (default
 `request_change`, `approve`, `reject`, `list_change_requests`, `audit`, `export`, `import_prompts`,
 `health`. `PromptRegistry.in_memory()` gives a throwaway SQLite registry for tests.
 
-`create_version(name, template, *, format="python", message, locale=None, config=None)` keeps the
+`create_version(name, template, *, format="python", message, locale=None, config=None, notes=None)` keeps the
 previous version's config when `config` is omitted (pass `{}` to clear it) and accepts `Message`
 objects or dicts for chat templates. The returned record carries `warning` when a locale variant's
 variables differ from the default locale's production version.
@@ -196,10 +196,11 @@ last move; it is an undo, so a second rollback re-applies the move. The UI shows
 
 Mount `admin_router(registry, principal=..., ui=True, include_in_schema=True)`.
 
-- UI: list and search, editor with format selector and live variable detection, JSON config and
-  metadata editors validated against your models, preview with sample variables, version history
-  and diffs, publish, request review, approve, reject, one-click rollback, audit log, and an
-  Import page (paste an export) plus an Export download for moving prompts between environments.
+- UI: list, search by name, tag and metadata (`owner=cx, team=tier1`), editor with format selector
+  and live variable detection, JSON config, notes and metadata editors validated against your
+  models, preview with sample variables, version history and diffs, publish, request review,
+  approve, reject, one-click rollback, audit log, locale tabs that flag translations not updated
+  since the default locale's last production change, and an Import page plus an Export download.
 - REST API under `<prefix>/api/...` (listed in the host's OpenAPI unless `include_in_schema=False`):
   `GET api/health`, `GET|POST api/prompts`, `GET api/prompts/{name}`,
   `POST api/prompts/{name}/versions|publish|rollback|change-requests|preview|archive`,
@@ -251,10 +252,12 @@ table prefix; `--actor` sets the audit actor (defaults to `$USER`).
 ## Migrations
 
 Tables: `prompts`, `versions`, `labels`, `label_history`, `change_requests`, `audit_log`, all with
-the configurable prefix and portable types (JSON, Text, BigInteger). Migrations ship as Alembic
+the configurable prefix and portable types (JSON, Text, BigInteger). Prompt names are
+case-sensitive on every engine (a binary collation is used on MySQL). Migrations ship as Alembic
 scripts with their own version table (`<prefix>alembic_version`) so they coexist with your app's.
-`promptpivot migrate` or `promptpivot.migrations.upgrade(engine)` runs them; without the `[alembic]`
-extra they fall back to `create_all`, which is fine for development.
+`prompt-pivot migrate` or `promptpivot.migrations.upgrade(engine)` creates a fresh schema in one
+step and upgrades an existing one revision by revision; without the `[alembic]` extra they fall
+back to `create_all`, which is fine for development.
 
 ## Production checklist
 

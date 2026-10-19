@@ -360,3 +360,63 @@ def test_dev_principal(monkeypatch: pytest.MonkeyPatch):
     with TestClient(app) as c:
         assert c.get("/admin/prompts/").status_code == 200
         assert c.get("/admin/prompts/audit").status_code == 200
+
+
+def test_metadata_filter_notes_and_stale_marking(client: TestClient):
+    h = {"x-role": "editor"}
+    client.reg.create_prompt("fin/x", metadata={"owner": "fin", "tier": 2})  # type: ignore[attr-defined]
+    assert [p["name"] for p in client.get("/admin/prompts/api/prompts?metadata=owner=fin", headers=h).json()] == [
+        "fin/x"
+    ]
+    assert [
+        p["name"] for p in client.get("/admin/prompts/api/prompts?metadata=owner=cx,tier=1", headers=h).json()
+    ] == []
+    assert [p["name"] for p in client.get("/admin/prompts/api/prompts?metadata=owner=cx", headers=h).json()] == [
+        "support/agent"
+    ]
+    r = client.get("/admin/prompts/?metadata=owner%3Dfin", headers=h)
+    assert r.status_code == 200 and "fin/x" in r.text and "support/agent" not in r.text
+    r = client.post(
+        "/admin/prompts/api/prompts/fin/x/versions",
+        json={"template": "x", "message": "m", "notes": {"ticket": "https://t/1"}},
+        headers=h,
+    )
+    assert r.status_code == 201 and r.json()["notes"] == {"ticket": "https://t/1"}
+    client.get("/admin/prompts/", headers=h)
+    r = post(
+        client,
+        "/admin/prompts/p/fin/x/versions",
+        "editor",
+        locale="en",
+        format="python",
+        message="v2",
+        template="y",
+        config="",
+        notes='{"ticket": "https://t/2", "reviewer": "bob"}',
+    )
+    assert r.status_code == 303
+    r = client.get("/admin/prompts/p/fin/x", headers=h)
+    assert 'href="https://t/2"' in r.text and "reviewer: bob" in r.text
+    assert (
+        post(
+            client,
+            "/admin/prompts/p/fin/x/versions",
+            "editor",
+            locale="en",
+            format="python",
+            message="v3",
+            template="z",
+            config="",
+            notes="[1]",
+        ).status_code
+        == 422
+    )
+    # stale locale marking
+    client.reg.create_version("support/agent", "Bonjour {customer_name} {plan}", message="fr", locale="fr")  # type: ignore[attr-defined]
+    client.reg.create_version("support/agent", "v2 {customer_name} {plan}", message="v2")  # type: ignore[attr-defined]
+    client.reg.publish("support/agent", 2, "production", force=True)  # type: ignore[attr-defined]
+    r = client.get("/admin/prompts/p/support/agent", headers=h)
+    assert "⚠" in r.text and "Not updated since the en production version changed" in r.text
+    r = client.get("/admin/prompts/p/support/agent?locale=fr", headers=h)
+    assert "This fr variant has not been updated" in r.text
+    assert client.get("/admin/prompts/api/prompts/support/agent", headers=h).json()["stale_locales"] == ["fr"]

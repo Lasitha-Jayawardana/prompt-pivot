@@ -32,7 +32,7 @@ from .models import (
     VersionRecord,
 )
 from .schema import DEFAULT_PREFIX, Tables, build_tables
-from .store import Store, locale_candidates
+from .store import Store, locale_candidates, stale_locales
 from .templating import build_renderer, detect_variables, guess_format
 
 log = logging.getLogger("promptpivot")
@@ -496,6 +496,7 @@ class PromptRegistry:
         actor: str | None = None,
         locale: str | None = None,
         config: dict[str, Any] | None = None,
+        notes: dict[str, Any] | None = None,
     ) -> VersionRecord:
         self._check_config(config)
         r = self._run(
@@ -507,6 +508,7 @@ class PromptRegistry:
             actor=self._actor(actor),
             locale=locale,
             config=config,
+            notes=notes,
         )
         self.cache.invalidate(name)
         return r
@@ -521,6 +523,7 @@ class PromptRegistry:
         actor: str | None = None,
         locale: str | None = None,
         config: dict[str, Any] | None = None,
+        notes: dict[str, Any] | None = None,
     ) -> VersionRecord:
         self._check_config(config)
         r = await self._arun(
@@ -532,12 +535,20 @@ class PromptRegistry:
             actor=self._actor(actor),
             locale=locale,
             config=config,
+            notes=notes,
         )
         self.cache.invalidate(name)
         return r
 
     def history(self, name: str, locale: str | None = None) -> list[VersionRecord]:
         return self._run(self.store.history, name, locale)
+
+    def stale_locales(self, name: str) -> list[str]:
+        """Locales not updated since the default locale's last production change."""
+        return stale_locales(self.history(name), self.labels(name), self.default_locale)
+
+    async def astale_locales(self, name: str) -> list[str]:
+        return stale_locales(await self.ahistory(name), await self.alabels(name), self.default_locale)
 
     async def ahistory(self, name: str, locale: str | None = None) -> list[VersionRecord]:
         return await self._arun(self.store.history, name, locale)
