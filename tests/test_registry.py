@@ -53,7 +53,7 @@ def test_validation_rules(registry: PromptRegistry):
             "x", [{"role": "u", "content": "hi"}], message="m", actor="a", config={"temperature": "hot"}
         )
     with pytest.raises(PromptRenderError):
-        registry.create_version("x", [{"role": "u", "content": "{a.b}"}], message="m", actor="a")
+        registry.create_version("x", [{"role": "u", "content": "{% if %}"}], format="jinja", message="m", actor="a")
 
 
 def test_protected_label_review_flow(registry: PromptRegistry):
@@ -166,6 +166,16 @@ def test_typed_define(registry: PromptRegistry):
 def test_default_fallback_and_chat_default(registry: PromptRegistry):
     p = registry.get("missing", default="Hello {n}!")
     assert p.is_fallback and p.version == 0 and p.compile(n=1) == "Hello 1!"
+    assert p.format == "python" and p.variables == ("n",)
+    j = registry.get("missing", default="Hi {{ name }}{% if fw %} ({{ fw }}){% endif %}")
+    assert j.format == "jinja" and j.compile(name="A", fw="x") == "Hi A (x)"
+    assert registry.get("missing", default="{{name}}", default_format="python").compile() == "{name}"
+    assert registry.get("missing", default="{{ name }}", default_format="python").compile() == "{{ name }}"
+    assert registry.get("missing", default='{"loc": "{city}"}').compile(city="Paris") == '{"loc": "Paris"}'
+    with pytest.raises(PromptValidationError):
+        registry.get("missing", default="x", default_format="mustache")
+    acc = registry.define("missing")
+    assert acc.get(default="{% if a %}1{% endif %}").compile(a=True) == "1"
     p = registry.get("missing", default=[{"role": "user", "content": "{q}"}])
     assert p.type == "chat" and p.compile(q="x")[0].content == "x"
 

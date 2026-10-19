@@ -66,6 +66,8 @@ async def test_async_single_flight_and_default(aregistry: PromptRegistry):
     with pytest.raises(PromptNotFound):
         await aregistry.aget("nope")
     assert (await aregistry.aget("nope", default="x")).compile() == "x"
+    assert (await aregistry.aget("nope", default="{{ x }}")).compile(x=2) == "2"
+    assert (await aregistry.aget("nope", default="{{x}}", default_format="python")).compile() == "{x}"
 
 
 async def test_sync_api_on_async_engine(aregistry: PromptRegistry):

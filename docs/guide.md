@@ -82,7 +82,7 @@ Two formats, chosen per version:
 
 | Format | Syntax | When to use |
 | --- | --- | --- |
-| `python` | `Hello {name}` (`{{`/`}}` for literal braces, `{n:03d}` specs allowed) | simple substitution; safest; fastest |
+| `python` | `Hello {name}` (`{n:03d}` specs allowed; other braces such as JSON examples stay as text; `{{name}}` prints a literal `{name}`) | simple substitution; safest; fastest |
 | `jinja` | `Hello {{ name }}{% if vip %} (VIP){% endif %}` | conditions, loops, filters; sandboxed with strict undefined |
 
 **Code** (rarely needed: most teams save versions in the UI)
@@ -264,7 +264,8 @@ messages = p.compile(SupportVars(customer_name="Alice", plan="Pro"))   # or keyw
 ```
 
 `default=` is used only when the prompt is missing or the database is unreachable with nothing
-cached. Give it to prompts that must never fail.
+cached. Give it to prompts that must never fail. Its format is guessed from Jinja tags (`{% %}`,
+`{{ }}`); pass `default_format="python"` or `"jinja"` to be explicit.
 
 Errors to handle: `PromptNotFound`, `PromptRenderError` (missing variable, bad template),
 `PromptValidationError` (variables/config/metadata fail their model), `PromptStoreUnavailable`

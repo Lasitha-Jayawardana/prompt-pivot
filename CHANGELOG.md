@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 (2026-10-19)
+
+- `python` format: only `{name}` / `{name:spec}` with a plain identifier is a variable; every other
+  brace (JSON examples, `{a.b}`, stray braces) is kept as text. `{{name}}` prints a literal `{name}`
+  (the old `{{`/`}}` escapes broke nested JSON).
+- `default=` templates written in Jinja no longer crash: the format is guessed from Jinja tags, and
+  `get`/`aget`/`define().get` accept `default_format="python" | "jinja"`. Fallback handles now
+  report their `format` and `variables`.
+
 ## 0.1.2 (2026-10-19)
 
 Fix: the `[mysql]` extra now includes `pymysql[rsa]` (the `cryptography` package), which MySQL 8's

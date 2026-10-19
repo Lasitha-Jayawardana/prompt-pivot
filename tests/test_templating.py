@@ -1,18 +1,38 @@
 import pytest
 
 from promptpivot import Message, PromptRenderError
-from promptpivot.templating import build_renderer, checksum, detect_variables
+from promptpivot.templating import build_renderer, checksum, detect_variables, guess_format
 
 
 def test_python_basic_and_escapes():
-    r = build_renderer("Hi {name}, {{literal}} {n:03d}", "python")
-    assert r({"name": "A", "n": 7}) == "Hi A, {literal} 007"
+    r = build_renderer("Hi {name}, {{name}} {n:03d}", "python")
+    assert r({"name": "A", "n": 7}) == "Hi A, {name} 007"
+    assert detect_variables("Hi {name}, {{name}} {n:03d}", "python") == ("name", "n")
 
 
-@pytest.mark.parametrize("tpl", ["{a.b}", "{a[0]}", "{a!r}", "{0}", "{}", "{a:{b}}", "{a"])
-def test_python_rejects_unsafe(tpl):
+@pytest.mark.parametrize(
+    "tpl",
+    [
+        '{"character_location": "Paris"}',
+        '{"a": {"b": [1, 2]}}',
+        "{a.b} {a[0]} {a!r} {0} {} {a",
+        "{{ jinja }} {% if x %}",
+        "}} {{",
+    ],
+)
+def test_python_leaves_other_braces_alone(tpl):
+    assert build_renderer(tpl, "python")({}) == tpl
+    assert detect_variables(tpl, "python") == ()
+
+
+def test_python_json_with_variables():
+    tpl = 'Reply as JSON like {"name": "{name}", "nested": {"n": {n:02d}}} for {name}.'
+    assert (
+        build_renderer(tpl, "python")({"name": "A", "n": 3})
+        == 'Reply as JSON like {"name": "A", "nested": {"n": 03}} for A.'
+    )
     with pytest.raises(PromptRenderError):
-        build_renderer(tpl, "python")
+        build_renderer("{n:zz}", "python")({"n": 1})  # bad format spec
 
 
 def test_python_missing_variable_is_keyerror():
@@ -35,6 +55,14 @@ def test_chat_renders_each_message():
     r = build_renderer([{"role": "system", "content": "S {a}"}, {"role": "user", "content": "U {b}"}], "python")
     out = r({"a": 1, "b": 2})
     assert out == [Message(role="system", content="S 1"), Message(role="user", content="U 2")]
+
+
+def test_guess_format():
+    assert guess_format("Hi {name}") == "python"
+    assert guess_format('{"a": 1}') == "python"
+    assert guess_format("Hi {{ name }}") == "jinja"
+    assert guess_format("{% if x %}y{% endif %}") == "jinja"
+    assert guess_format([{"role": "user", "content": "{# c #}{{ q }}"}]) == "jinja"
 
 
 def test_detect_variables_and_checksum():

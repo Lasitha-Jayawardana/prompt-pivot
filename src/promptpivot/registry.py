@@ -33,7 +33,7 @@ from .models import (
 )
 from .schema import DEFAULT_PREFIX, Tables, build_tables
 from .store import Store, locale_candidates
-from .templating import build_renderer
+from .templating import build_renderer, detect_variables, guess_format
 
 log = logging.getLogger("promptpivot")
 
@@ -149,9 +149,10 @@ class PromptRegistry:
         locale: str | None = None,
         default: str | list[Message] | list[dict[str, Any]] | None = None,
         ttl: float | None = None,
+        default_format: str | None = None,
     ) -> Prompt[BaseModel, Any, Any]:
         """Resolve a prompt handle. Cache hit: no I/O. Miss: one indexed query."""
-        return self._get(name, label, locale, default, ttl, None, None, None, None)
+        return self._get(name, label, locale, default, ttl, None, None, None, None, default_format)
 
     async def aget(
         self,
@@ -161,8 +162,9 @@ class PromptRegistry:
         locale: str | None = None,
         default: str | list[Message] | list[dict[str, Any]] | None = None,
         ttl: float | None = None,
+        default_format: str | None = None,
     ) -> Prompt[BaseModel, Any, Any]:
-        return await self._aget(name, label, locale, default, ttl, None, None, None, None)
+        return await self._aget(name, label, locale, default, ttl, None, None, None, None, default_format)
 
     def define(
         self,
@@ -189,6 +191,7 @@ class PromptRegistry:
         cfg_model: Any,
         meta_model: Any,
         tag: str | None,
+        default_format: str | None = None,
     ) -> Prompt[Any, Any, Any]:
         label, locale = label or self.environment, locale or self.default_locale
         ttl = self.cache_ttl if ttl is None else ttl
@@ -208,11 +211,13 @@ class PromptRegistry:
             else:
                 h = build(self._run(self.store.resolve, name, label, locale_candidates(locale, self.default_locale)))
         except _UNAVAILABLE as e:
-            h = self._on_unavailable(key, name, label, locale, default, ttl, vars_model, cfg_model, meta_model, e)
+            h = self._on_unavailable(
+                key, name, label, locale, default, ttl, vars_model, cfg_model, meta_model, e, default_format
+            )
         except PromptNotFound:
             if default is None:
                 raise
-            h = self._fallback(name, label, locale, default, vars_model, cfg_model, meta_model)
+            h = self._fallback(name, label, locale, default, vars_model, cfg_model, meta_model, default_format)
         return self._trace(h)
 
     async def _aget(
@@ -226,6 +231,7 @@ class PromptRegistry:
         cfg_model: Any,
         meta_model: Any,
         tag: str | None,
+        default_format: str | None = None,
     ) -> Prompt[Any, Any, Any]:
         label, locale = label or self.environment, locale or self.default_locale
         ttl = self.cache_ttl if ttl is None else ttl
@@ -241,11 +247,13 @@ class PromptRegistry:
         try:
             h = await (self.cache.aload(key, loader, ttl) if ttl > 0 else loader())
         except _UNAVAILABLE as e:
-            h = self._on_unavailable(key, name, label, locale, default, ttl, vars_model, cfg_model, meta_model, e)
+            h = self._on_unavailable(
+                key, name, label, locale, default, ttl, vars_model, cfg_model, meta_model, e, default_format
+            )
         except PromptNotFound:
             if default is None:
                 raise
-            h = self._fallback(name, label, locale, default, vars_model, cfg_model, meta_model)
+            h = self._fallback(name, label, locale, default, vars_model, cfg_model, meta_model, default_format)
         return self._trace(h)
 
     def _on_unavailable(
@@ -260,6 +268,7 @@ class PromptRegistry:
         cfg_model: Any,
         meta_model: Any,
         err: BaseException,
+        default_format: str | None = None,
     ) -> Prompt[Any, Any, Any]:
         now = time.monotonic()
         if now - self._last_warn > 30:
@@ -271,7 +280,7 @@ class PromptRegistry:
             self.cache.retain(key, h, min(ttl, 5.0) if ttl > 0 else 0)  # back off, keep loaded_at
             return h
         if default is not None:
-            return self._fallback(name, label, locale, default, vars_model, cfg_model, meta_model)
+            return self._fallback(name, label, locale, default, vars_model, cfg_model, meta_model, default_format)
         raise PromptStoreUnavailable(f"cannot load prompt {name!r}: {err}") from err
 
     def _builder(
@@ -322,6 +331,7 @@ class PromptRegistry:
         vars_model: Any,
         cfg_model: Any,
         meta_model: Any,
+        default_format: str | None = None,
     ) -> Prompt[Any, Any, Any]:
         cfg_model = cfg_model or self.config_model
         meta_model = meta_model or self.metadata_model
@@ -330,6 +340,9 @@ class PromptRegistry:
             if isinstance(default, str)
             else [m.model_dump() if isinstance(m, BaseModel) else dict(m) for m in default]
         )
+        fmt = default_format or guess_format(raw)
+        if fmt not in ("python", "jinja"):
+            raise PromptValidationError("default_format must be 'python' or 'jinja'")
         return Prompt(
             name=name,
             version=0,
@@ -337,13 +350,13 @@ class PromptRegistry:
             locale=locale,
             requested_locale=locale,
             type="text" if isinstance(raw, str) else "chat",
-            format="python",
+            format=fmt,  # type: ignore[arg-type]
             template=raw if isinstance(raw, str) else [Message(**m) for m in raw],
             config=cfg_model.model_construct(),
             metadata=meta_model.model_construct() if meta_model else {},
-            variables=(),
+            variables=detect_variables(raw, fmt),
             is_fallback=True,
-            _renderer=build_renderer(raw, "python"),
+            _renderer=build_renderer(raw, fmt),
             _variables_model=vars_model,
         )
 

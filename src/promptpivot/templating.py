@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Sequence
-from string import Formatter
 from typing import Any
 
 from jinja2 import StrictUndefined, TemplateSyntaxError, meta
@@ -37,29 +37,31 @@ def normalize_template(template: Any) -> str | list[dict[str, Any]]:
     return out
 
 
-_formatter = Formatter()
 _jinja = SandboxedEnvironment(undefined=StrictUndefined, autoescape=False, keep_trailing_newline=True)
 
 
 # --- python format ------------------------------------------------------------------------------
 
 
+_PY_FIELD = re.compile(r"\{\{([A-Za-z_]\w*)(:[^{}]*)?\}\}|\{([A-Za-z_]\w*)(?::([^{}]*))?\}")
+
+
 def _parse_python(template: str) -> list[tuple[str, str | None, str]]:
-    """Parse ``{name}`` fields. Only bare identifiers are allowed; ``{{``/``}}`` escape braces."""
-    try:
-        parsed = list(_formatter.parse(template))
-    except ValueError as e:
-        raise PromptRenderError(f"invalid template: {e}") from e
+    """Split a ``python`` template into (literal, variable, spec) segments.
+
+    Only ``{name}`` and ``{name:spec}`` with a plain identifier are variables. ``{{name}}`` is an
+    escape for a literal ``{name}``. Every other brace, such as a JSON example, is left as text.
+    """
     segments: list[tuple[str, str | None, str]] = []
-    for literal, name, spec, conversion in parsed:
-        if name is None:
-            segments.append((literal, None, ""))
-            continue
-        if conversion is not None or not name.isidentifier():
-            raise PromptRenderError(f"unsafe field {{{name}}}: only plain variable names are allowed")
-        if spec and "{" in spec:
-            raise PromptRenderError(f"nested fields are not allowed in {{{name}:{spec}}}")
-        segments.append((literal, name, spec or ""))
+    pos = 0
+    for m in _PY_FIELD.finditer(template):
+        literal = template[pos : m.start()]
+        if m.group(1) is not None:  # {{name}} -> literal {name}
+            segments.append((literal + "{" + m.group(1) + (m.group(2) or "") + "}", None, ""))
+        else:
+            segments.append((literal, m.group(3), m.group(4) or ""))
+        pos = m.end()
+    segments.append((template[pos:], None, ""))
     return segments
 
 
@@ -68,7 +70,10 @@ def _render_python(segments: Sequence[tuple[str, str | None, str]], values: dict
     for literal, name, spec in segments:
         out.append(literal)
         if name is not None:
-            out.append(format(values[name], spec))  # KeyError -> PromptRenderError in handle
+            try:
+                out.append(format(values[name], spec))  # KeyError -> PromptRenderError in handle
+            except ValueError as e:
+                raise PromptRenderError(f"bad format spec {{{name}:{spec}}}: {e}") from e
     return "".join(out)
 
 
@@ -91,6 +96,13 @@ def _compile_jinja(template: str) -> Callable[[dict[str, Any]], str]:
 
 
 # --- public helpers -----------------------------------------------------------------------------
+
+
+def guess_format(template: Any) -> str:
+    """``jinja`` when the template contains Jinja tags or expressions, else ``python``."""
+    template = normalize_template(template)
+    sources = [template] if isinstance(template, str) else [str(m.get("content", "")) for m in template]
+    return "jinja" if any("{%" in src or "{{ " in src or "{#" in src for src in sources) else "python"
 
 
 def detect_variables(template: Any, fmt: str) -> tuple[str, ...]:

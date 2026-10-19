@@ -72,6 +72,8 @@ span.set_attributes(p.trace_attributes())                    # prompt.name / ver
 
 # sync code works too, with an optional in-code default used only when nothing else can be served
 p = prompts.get("greeting", default="Hello {customer_name}!")
+# a default written in Jinja is detected from its tags; pass default_format= to be explicit
+p = prompts.get("greeting", default="Hi {{ name }}{% if vip %}!{% endif %}", default_format="jinja")
 ```
 
 **4. Typed prompts (recommended):**
@@ -114,7 +116,7 @@ for a runnable demo (`uvicorn examples.app:app --reload`).
 
 | Format | Example | Rules |
 | --- | --- | --- |
-| `python` | `Help {customer_name} on the {plan} plan.` | Named fields only. No attribute access, indexing or conversions. `{{` and `}}` for literal braces. Plain format specs such as `{n:03d}` are allowed. |
+| `python` | `Help {customer_name} on the {plan} plan.` | Only `{name}` (a plain identifier, optionally `{name:spec}`) is a variable. Every other brace is left as text, so JSON examples such as `{"city": "Paris"}` need no escaping. Write `{{name}}` for a literal `{name}`. |
 | `jinja` | `Help {{ customer_name }}{% if plan == "Pro" %} with priority{% endif %}.` | Sandboxed environment, strict undefined, compiled once per version. |
 
 Missing variables raise `PromptRenderError` in both formats.

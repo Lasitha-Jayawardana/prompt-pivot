@@ -36,7 +36,7 @@
 {% if principal.can('prompts:edit') %}
 <h2>New version · {{ locale }}</h2>
 <form method="post" action="{{ request.url_for('promptpivot_version', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="locale" value="{{ locale }}">
-<div class="row"><div><label>Format</label><select name="format" id="fmt"><option value="python" {{ 'selected' if latest and latest.format == 'python' }}>python — {name}</option><option value="jinja" {{ 'selected' if latest and latest.format == 'jinja' }}>jinja — {{ '{{ name }}' }}</option></select></div>
+<div class="row"><div><label>Format</label><select name="format" id="fmt"><option value="python" {{ 'selected' if latest and latest.format == 'python' }}>python — {name} (other braces, e.g. JSON, stay as text)</option><option value="jinja" {{ 'selected' if latest and latest.format == 'jinja' }}>jinja — {{ '{{ name }}' }}</option></select></div>
 <div><label>Commit message</label><input name="message" required style="width:100%"></div></div>
 <label>Template{% if prompt.type == 'chat' %} (JSON list of {"role", "content"} messages){% endif %} — variables: <span id="vars" class="mono"></span></label>
 <textarea name="template" id="tpl" class="mono" style="min-height:220px" required>{{ template_text }}</textarea>
@@ -52,8 +52,8 @@
 {% if principal.can('prompts:admin') %}</form><form class="inline" method="post" action="{{ request.url_for('promptpivot_archive', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}">{% if prompt.archived_at %}<input type="hidden" name="undo" value="1"><button>Restore</button>{% else %}<button onclick="return confirm('Archive {{ prompt.name }}? History is kept.')">Archive</button>{% endif %}{% endif %}</p></form>
 <script>
 (function(){var t=document.getElementById('tpl'),f=document.getElementById('fmt'),o=document.getElementById('vars');
-function d(){var s=t.value,r=f.value==='python'?/\{([A-Za-z_]\w*)[^{}]*\}/g:/\{\{\s*([A-Za-z_]\w*)/g,m,v=[];
-s=f.value==='python'?s.replace(/\{\{|\}\}/g,''):s;while((m=r.exec(s)))if(v.indexOf(m[1])<0)v.push(m[1]);o.textContent=v.join(', ')||'—'}
+function d(){var s=t.value,r=f.value==='python'?/\{([A-Za-z_]\w*)(?::[^{}]*)?\}/g:/\{\{\s*([A-Za-z_]\w*)/g,m,v=[];
+s=f.value==='python'?s.replace(/\{\{[A-Za-z_]\w*(?::[^{}]*)?\}\}/g,''):s;while((m=r.exec(s)))if(v.indexOf(m[1])<0)v.push(m[1]);o.textContent=v.join(', ')||'—'}
 t.addEventListener('input',d);f.addEventListener('change',d);d()})();
 </script>
 {% endif %}

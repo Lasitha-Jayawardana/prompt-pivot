@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-pivot"
-version = "0.1.2"
+version = "0.1.3"
 description = "Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using your own PostgreSQL or MySQL database."
 readme = "README.md"
 license = "Apache-2.0"
