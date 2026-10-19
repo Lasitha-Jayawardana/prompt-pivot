@@ -1,4 +1,4 @@
-"""per-version notes; case-sensitive prompt names on MySQL
+"""per-version notes; case-sensitive names and microsecond timestamps on MySQL
 
 Revision ID: 0002
 Revises: 0001
@@ -6,6 +6,17 @@ Revises: 0001
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.mysql import DATETIME
+
+TIMESTAMPS = {
+    "prompts": ("archived_at", "created_at", "updated_at"),
+    "versions": ("created_at",),
+    "labels": ("updated_at",),
+    "label_history": ("at",),
+    "change_requests": ("created_at", "decided_at"),
+    "audit_log": ("at",),
+}
+NULLABLE = {("prompts", "archived_at"), ("change_requests", "decided_at")}
 
 revision = "0002"
 down_revision = "0001"
@@ -26,6 +37,15 @@ def upgrade(prefix: str = "promptpivot_") -> None:
             existing_type=sa.String(255),
             existing_nullable=False,
         )
+        for table, cols in TIMESTAMPS.items():
+            for col in cols:
+                op.alter_column(
+                    f"{prefix}{table}",
+                    col,
+                    type_=DATETIME(fsp=6),
+                    existing_type=sa.DateTime(),
+                    existing_nullable=(table, col) in NULLABLE,
+                )
 
 
 def downgrade(prefix: str = "promptpivot_") -> None:

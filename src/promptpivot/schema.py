@@ -18,12 +18,16 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.mysql import DATETIME
 
 DEFAULT_PREFIX = "promptpivot_"
 BigId = BigInteger().with_variant(Integer(), "sqlite")
 # Prompt names are case-sensitive everywhere. MySQL's default collation is case-insensitive, so
 # the name column gets a binary collation there (PostgreSQL and SQLite compare bytes already).
 NameString = String(255).with_variant(String(255, collation="utf8mb4_bin"), "mysql", "mariadb")
+# MySQL DATETIME keeps whole seconds unless given a fractional-seconds precision; versions saved in
+# the same second must still order correctly.
+Timestamp = DateTime(timezone=True).with_variant(DATETIME(fsp=6), "mysql", "mariadb")
 
 
 @dataclass(frozen=True)
@@ -51,9 +55,9 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         Column("description", Text),
         Column("tags", JSON, nullable=False),
         Column("metadata", JSON, nullable=False),
-        Column("archived_at", DateTime(timezone=True)),
-        Column("created_at", DateTime(timezone=True), nullable=False),
-        Column("updated_at", DateTime(timezone=True), nullable=False),
+        Column("archived_at", Timestamp),
+        Column("created_at", Timestamp, nullable=False),
+        Column("updated_at", Timestamp, nullable=False),
     )
     versions = Table(
         f"{p}versions",
@@ -70,7 +74,7 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         Column("message", Text, nullable=False),
         Column("notes", JSON),
         Column("created_by", String(255), nullable=False),
-        Column("created_at", DateTime(timezone=True), nullable=False),
+        Column("created_at", Timestamp, nullable=False),
         UniqueConstraint("prompt_id", "locale", "version", name=f"uq_{p}versions"),
     )
     labels = Table(
@@ -82,7 +86,7 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         Column("label", String(64), nullable=False),
         Column("version_id", BigId, ForeignKey(versions.c.id), nullable=False),
         Column("updated_by", String(255), nullable=False),
-        Column("updated_at", DateTime(timezone=True), nullable=False),
+        Column("updated_at", Timestamp, nullable=False),
         Column("lock_version", Integer, nullable=False, default=0),
         UniqueConstraint("prompt_id", "label", "locale", name=f"uq_{p}labels"),
     )
@@ -96,7 +100,7 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         Column("actor", String(255), nullable=False),
         Column("reason", Text),
         Column("change_request_id", BigId),
-        Column("at", DateTime(timezone=True), nullable=False),
+        Column("at", Timestamp, nullable=False),
         Index(f"ix_{p}label_history_label", "label_id", "id"),
     )
     change_requests = Table(
@@ -111,15 +115,15 @@ def build_tables(prefix: str = DEFAULT_PREFIX) -> Tables:
         Column("author", String(255), nullable=False),
         Column("reviewer", String(255)),
         Column("comment", Text),
-        Column("created_at", DateTime(timezone=True), nullable=False),
-        Column("decided_at", DateTime(timezone=True)),
+        Column("created_at", Timestamp, nullable=False),
+        Column("decided_at", Timestamp),
         Index(f"ix_{p}change_requests_prompt", "prompt_id", "status"),
     )
     audit_log = Table(
         f"{p}audit_log",
         md,
         Column("id", BigId, primary_key=True, autoincrement=True),
-        Column("at", DateTime(timezone=True), nullable=False),
+        Column("at", Timestamp, nullable=False),
         Column("actor", String(255), nullable=False),
         Column("action", String(32), nullable=False),
         Column("target_type", String(32), nullable=False),

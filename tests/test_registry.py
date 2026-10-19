@@ -393,7 +393,10 @@ def test_prompt_names_are_case_sensitive(registry: PromptRegistry):
     """Needs a binary collation on MySQL; PostgreSQL and SQLite compare bytes already."""
     registry.create_prompt("Support/Agent")
     registry.create_prompt("support/agent")
-    assert [p.name for p in registry.list_prompts()] == ["Support/Agent", "support/agent"]
+    assert {p.name for p in registry.list_prompts()} == {
+        "Support/Agent",
+        "support/agent",
+    }  # order is collation-specific
     registry.create_version("Support/Agent", "upper", message="m")
     registry.create_version("support/agent", "lower", message="m")
     registry.publish("Support/Agent", 1, "staging")
