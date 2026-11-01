@@ -39,10 +39,11 @@ Map your roles once in the dependency you pass to `admin_router`:
 
 ```python
 ROLE_PERMISSIONS = {
-    "editor":   {"prompts:read", "prompts:edit", "prompts:publish:staging"},
+    "editor": {"prompts:read", "prompts:edit", "prompts:publish:staging"},
     "approver": {"prompts:read", "prompts:approve", "prompts:publish:production"},
-    "admin":    {"prompts:admin"},
+    "admin": {"prompts:admin"},
 }
+
 
 async def principal(user=Depends(get_current_user)) -> Principal:
     perms = set().union(*(ROLE_PERMISSIONS[r] for r in user.roles))
@@ -59,9 +60,9 @@ a string, `chat` renders to a list of role/content messages), optional descripti
 **Code**
 ```python
 prompts.create_prompt("support/agent", "chat", actor="ann", tags=["support"], description="Tier-1 agent")
-prompts.list_prompts(q="support", tag="support")          # search by name substring and tag
+prompts.list_prompts(q="support", tag="support")  # search by name substring and tag
 prompts.update_prompt("support/agent", actor="ann", tags=["support", "tier1"])
-prompts.archive("support/agent", actor="ann")              # hidden from lists and from get(); history kept
+prompts.archive("support/agent", actor="ann")  # hidden from lists and from get(); history kept
 prompts.archive("support/agent", actor="ann", archived=False)
 ```
 
@@ -90,12 +91,15 @@ Two formats, chosen per version:
 rec = prompts.create_version(
     "support/agent",
     [{"role": "system", "content": "You help {{ customer_name }}."}, {"role": "user", "content": "{{ question }}"}],
-    format="jinja", message="add greeting", actor="ann", config={"model": "claude-sonnet-5-5"},
+    format="jinja",
+    message="add greeting",
+    actor="ann",
+    config={"model": "claude-sonnet-5-5"},
 )
-rec.version, rec.variables, rec.warning   # 2, ('customer_name', 'question'), None
+rec.version, rec.variables, rec.warning  # 2, ('customer_name', 'question'), None
 # config=None keeps the previous version's config; pass {} to clear. Message objects or dicts both work.
 prompts.history("support/agent", "en")
-prompts.diff("support/agent", 1, 2)   # unified diff of format, template and config
+prompts.diff("support/agent", 1, 2)  # unified diff of format, template and config
 ```
 
 **UI.** The *New version* form on a prompt page: pick the format, type the template (chat
@@ -142,6 +146,7 @@ class Meta(BaseModel):
     owner: str
     team: str | None = None
 
+
 acc = prompts.define("support/agent", metadata=Meta)
 acc.get().metadata.owner
 prompts.update_metadata("support/agent", {"owner": "cx", "team": "tier1"}, actor="ann")
@@ -162,8 +167,8 @@ versions and labels. Resolution on read: exact tag, then base language, then the
 ```python
 prompts.create_version("support/agent", "Bonjour {customer_name}", locale="fr", message="fr", actor="ann")
 prompts.publish("support/agent", 1, "staging", locale="fr", actor="ann")
-p = prompts.get("support/agent", locale="fr-CA")   # fr-CA -> fr -> en
-p.locale, p.requested_locale                        # 'fr', 'fr-CA'
+p = prompts.get("support/agent", locale="fr-CA")  # fr-CA -> fr -> en
+p.locale, p.requested_locale  # 'fr', 'fr-CA'
 ```
 
 Saving a locale whose variables differ from the default locale's production version returns a
@@ -184,11 +189,11 @@ production.
 
 **Code**
 ```python
-prompts = PromptRegistry(engine, environment=os.environ["APP_ENV"])   # "staging" or "production"
-prompts.get("support/agent")                      # environment label
-prompts.get("support/agent", label="canary")      # explicit label
+prompts = PromptRegistry(engine, environment=os.environ["APP_ENV"])  # "staging" or "production"
+prompts.get("support/agent")  # environment label
+prompts.get("support/agent", label="canary")  # explicit label
 prompts.publish("support/agent", 3, "canary", actor="ann")
-prompts.labels("support/agent")                   # every label of every locale
+prompts.labels("support/agent")  # every label of every locale
 prompts.label_history("support/agent", "production")
 ```
 
@@ -205,10 +210,10 @@ reason, which is highlighted in the audit log.
 **Code**
 ```python
 cr = prompts.request_change("support/agent", 2, "production", actor="ann", comment="tested on staging")
-prompts.approve(cr.id, actor="bob")                      # bob != ann
+prompts.approve(cr.id, actor="bob")  # bob != ann
 prompts.publish("support/agent", 2, "production", actor="bob")
 prompts.publish("support/agent", 2, "production", actor="ops", force=True, reason="incident 123")
-prompts.publish("support/agent", 2, "staging", actor="ann", expected_current=1)   # PromptConflict if moved
+prompts.publish("support/agent", 2, "staging", actor="ann", expected_current=1)  # PromptConflict if moved
 ```
 
 **UI.** On a version row, open *more*: *→ staging* publishes directly; *Request production* opens a
@@ -245,16 +250,16 @@ accessor. `compile()` renders; `trace_attributes()` gives span attributes.
 ```python
 p = await prompts.aget("support/agent", locale=user.locale, default="Hello {customer_name}")
 p.name, p.version, p.label, p.locale, p.requested_locale, p.type, p.format
-p.template            # str or list[Message]
-p.config.model        # typed
-p.metadata            # dict or your model
-p.variables           # ('customer_name', 'plan')
-p.is_fallback         # True when served from default= or a stale entry during an outage
-text_or_messages = p.compile(customer_name="Alice", plan="Pro")   # str | list[Message]
-text = p.compile_text(...)            # typed str; raises PromptRenderError on a chat prompt
-messages = p.compile_messages(...)    # typed list[Message]; raises on a text prompt
-span.set_attributes(p.trace_attributes())   # or:
-with p.traced():                            # attributes on the current span + baggage for child spans
+p.template  # str or list[Message]
+p.config.model  # typed
+p.metadata  # dict or your model
+p.variables  # ('customer_name', 'plan')
+p.is_fallback  # True when served from default= or a stale entry during an outage
+text_or_messages = p.compile(customer_name="Alice", plan="Pro")  # str | list[Message]
+text = p.compile_text(...)  # typed str; raises PromptRenderError on a chat prompt
+messages = p.compile_messages(...)  # typed list[Message]; raises on a text prompt
+span.set_attributes(p.trace_attributes())  # or:
+with p.traced():  # attributes on the current span + baggage for child spans
     await llm.chat(...)
 ```
 
@@ -263,7 +268,7 @@ Typed accessor, recommended for anything used from more than one place:
 ```python
 support_agent = prompts.define("support/agent", variables=SupportVars, config=MyConfig, metadata=Meta)
 p = await support_agent.aget()
-messages = p.compile(SupportVars(customer_name="Alice", plan="Pro"))   # or keyword args, validated
+messages = p.compile(SupportVars(customer_name="Alice", plan="Pro"))  # or keyword args, validated
 ```
 
 `default=` is used only when the prompt is missing or the database is unreachable with nothing
@@ -319,9 +324,9 @@ in one place. A JSON output contract shared by every extractor prompt.
 - `cache_max_entries` (500) bounds memory per worker.
 
 ```python
-prompts.get("support/agent", ttl=5)          # near-real-time for an experiment
-prompts.cache.invalidate("support/agent")    # force a reload in this process
-prompts.cache.stats()                        # size, hits, misses, hit_ratio
+prompts.get("support/agent", ttl=5)  # near-real-time for an experiment
+prompts.cache.invalidate("support/agent")  # force a reload in this process
+prompts.cache.stats()  # size, hits, misses, hit_ratio
 ```
 
 ### 3.11 Preview and diff
@@ -439,7 +444,41 @@ prompts from staging to production or to seed a fresh environment.
 Newest first, filter by target (prompt name) or actor, *show* expands before/after and the reason.
 Break-glass publishes carry a `break-glass:` reason.
 
-## 5. Workflows
+## 5. Which option when
+
+| Decision | Choose | Because |
+| --- | --- | --- |
+| `python` or `jinja` format | `python` unless the prompt needs conditions, loops or filters | simpler, faster, safer; JSON examples need no escaping |
+| Text or chat prompt | `chat` when the provider takes role messages; `text` for single strings and fragments | matches the LLM call shape |
+| `get()` or `aget()` | `aget()` inside `async def`; `get()` in scripts, Celery tasks, sync routes | a sync call inside a running loop raises |
+| Untyped or `define()` | `define()` for any prompt read from more than one place | variables are validated, config and metadata are typed |
+| `default=` or not | yes for prompts on the critical path | new workers can start during a database outage |
+| `production`, `staging`, custom label | `production` and `staging` for environments; custom labels (`canary`, `fallback`) for code-selected variants | labels are what code reads; custom labels need no approval unless you protect them |
+| Follow or pin a fragment | follow by default; pin (`@v3`) when a parent must not change until republished | pins trade convenience for a frozen parent |
+| `cache_ttl` | 30 to 60 s | bounds publish propagation; one query per hot prompt per TTL per worker |
+| UI, CLI or code for writes | UI for people; CLI/Import for moving between environments; code only for one-off seeding | audit attribution and review live in the UI flow |
+| Rollback or publish an older version | rollback for "undo the last move"; publish `vN` to go to a specific version | rollback twice redoes |
+| Metadata or notes | metadata for facts about the prompt (owner, team); notes for facts about one version (ticket) | metadata edits do not create versions |
+
+## 6. Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `RuntimeError: ... sync method was called from inside a running event loop` | `get()`/`publish()` called in `async def` with an `AsyncEngine` | use `aget()`/`apublish()` |
+| `ImportError: ... greenlet` on import | an old environment without `sqlalchemy[asyncio]` | upgrade `prompt-pivot` (0.1.1+ depends on it) |
+| `PromptNotFound: no version of 'x' carries label 'production'` | the prompt exists but nothing is published to that label for the requested locales | publish to the label, or pass `default=` |
+| `PromptNotFound: fragment {> x}: ...` | the fragment has no version under the parent's label | publish the fragment to that label or pin `@vN` |
+| `PromptRenderError: missing variable 'x'` | the call site does not pass a variable the template uses | pass it, or fix the template; check `handle.variables` |
+| `PromptRenderError: fragment cycle` | a fragment includes its own parent | break the cycle |
+| 403 "CSRF token missing or invalid" in the UI | the form was posted without the cookie (first visit, cleared cookies, or a cross-site post) | reload the page and retry |
+| 415 on the API | the request body is not `application/json` | send JSON with the right content type |
+| 403 "label 'production' is protected" | direct publish to a protected label | request a change and get it approved, or (incident) force with a reason as admin |
+| 409 `PromptConflict` | someone moved the label first, or the prompt already exists | reload and retry |
+| 503 from `dev_principal` | `PROMPTPIVOT_DEV_UI` is not `1` | set it for local development only |
+| A publish is not visible on another worker | within `cache_ttl` | wait for the TTL or lower it |
+| `'cryptography' package is required` with MySQL | the async MySQL driver needs it | install `prompt-pivot[mysql]` (0.1.2+) |
+
+## 7. Workflows
 
 **Change a production prompt without a deploy.** Editor saves a new version → *→ staging* → test
 the staging app → *Request production* → approver clicks *Approve* then *Publish* → every worker
@@ -463,6 +502,7 @@ p = await prompts.aget("support/agent", label=label)
 **Typed prompt inside an agent.**
 ```python
 support_agent = prompts.define("support/agent", variables=SupportVars, config=MyConfig)
+
 
 async def answer(user, question):
     p = await support_agent.aget(locale=user.locale, default=[{"role": "user", "content": "{question}"}])

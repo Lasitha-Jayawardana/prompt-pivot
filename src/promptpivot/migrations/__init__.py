@@ -69,5 +69,6 @@ def upgrade(engine: Engine | AsyncEngine, prefix: str = DEFAULT_PREFIX, revision
 
 
 async def aupgrade(engine: AsyncEngine, prefix: str = DEFAULT_PREFIX, revision: str = "head") -> str:
+    """Async form of :func:`upgrade` for use inside a running event loop (e.g. FastAPI startup)."""
     async with engine.begin() as conn:
         return await conn.run_sync(upgrade_sync, prefix, revision)

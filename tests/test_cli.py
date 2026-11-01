@@ -100,3 +100,22 @@ def test_migration_from_initial_schema(tmp_path):
     cfg = Config()
     cfg.set_main_option("script_location", str(HERE))
     assert ScriptDirectory.from_config(cfg).get_current_head() == "0002"
+
+
+def test_reference_is_up_to_date():
+    """docs/reference.md is generated from the code; regenerate with `python docs/gen_reference.py`."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "docs" / "gen_reference.py"
+    spec = importlib.util.spec_from_file_location("gen_reference", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.OUT.read_text() == mod.main(), "docs/reference.md is stale: run python docs/gen_reference.py"
+
+
+def test_docs_command(capsys):
+    assert main(["docs"]) == 0
+    out = capsys.readouterr().out
+    assert "prompt-pivot" in out and "aget" in out and "Do not" in out

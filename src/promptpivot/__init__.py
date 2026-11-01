@@ -23,6 +23,15 @@ from .models import (
 from .registry import PromptAccessor, PromptRegistry
 
 __version__ = "0.1.3"
+
+
+def agent_guide() -> str:
+    """The packaged usage guide for developers and coding agents (also ``prompt-pivot docs``)."""
+    from importlib.resources import files
+
+    return files(__name__).joinpath("agent-guide.md").read_text(encoding="utf-8")
+
+
 __all__ = [
     "PromptRegistry",
     "PromptAccessor",
@@ -43,4 +52,5 @@ __all__ = [
     "PromptConflict",
     "PromptPolicyError",
     "__version__",
+    "agent_guide",
 ]

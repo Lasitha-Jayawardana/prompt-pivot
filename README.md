@@ -13,7 +13,12 @@ workers.
 - **Small**: four runtime dependencies you already have in a FastAPI app (SQLAlchemy, Pydantic,
   Jinja2, FastAPI). About 3,000 lines including the UI. `py.typed`, mypy strict clean.
 
-Full feature, use-case and UI walkthrough: [docs/guide.md](docs/guide.md).
+**Documentation**
+
+- [Agent and developer guide](src/promptpivot/agent-guide.md): the rules that are easy to get wrong, in two pages. Also `prompt-pivot docs` or `promptpivot.agent_guide()` in any environment where the package is installed, so a coding agent can read the guide for the exact installed version.
+- [Feature guide](docs/guide.md): every feature with code, UI and CLI usage, use cases, a UI walkthrough, when-to-use decisions and troubleshooting.
+- [API reference](docs/reference.md): generated from the code and checked by the test suite.
+- [llms.txt](llms.txt): an index of these for AI tools.
 
 ## Install
 

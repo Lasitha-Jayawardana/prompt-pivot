@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Documentation: docstrings on every public method; generated `docs/reference.md` (checked by
+  tests); `src/promptpivot/agent-guide.md` shipped in the wheel and printed by `prompt-pivot docs` /
+  `promptpivot.agent_guide()`; `llms.txt`; guide sections on which option to choose when and on
+  troubleshooting.
 - Fragments: include a text prompt inside others with `{> name}` (`@label` / `@v3` to pin);
   resolved at read time with cycle detection, recorded on the handle (`fragments`) and in traces
   (`prompt.fragments`); shown in the UI and resolved in previews.

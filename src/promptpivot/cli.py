@@ -81,7 +81,13 @@ def main(argv: list[str] | None = None) -> int:
     rb.add_argument("--reason")
     ls = sub.add_parser("list", help="list prompts and their labels")
     ls.add_argument("-q")
+    sub.add_parser("docs", help="print the usage guide for developers and coding agents")
     args = ap.parse_args(argv)
+    if args.cmd == "docs":
+        from . import agent_guide
+
+        sys.stdout.write(agent_guide())
+        return 0
     if not args.url:
         ap.error("--url or PROMPTPIVOT_DATABASE_URL is required")
 

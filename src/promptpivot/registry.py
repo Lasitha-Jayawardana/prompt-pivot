@@ -138,6 +138,7 @@ class PromptRegistry:
         self._run(lambda c: self.tables.metadata.create_all(c))
 
     async def acreate_tables(self) -> None:
+        """Async form of :meth:`create_tables`."""
         await self._arun(lambda c: self.tables.metadata.create_all(c))
 
     # -- read path -------------------------------------------------------------------------------
@@ -165,6 +166,7 @@ class PromptRegistry:
         ttl: float | None = None,
         default_format: str | None = None,
     ) -> Prompt[BaseModel, Any, Any]:
+        """Async form of :meth:`get`."""
         return await self._aget(name, label, locale, default, ttl, None, None, None, None, default_format)
 
     def define(
@@ -387,9 +389,11 @@ class PromptRegistry:
     # -- health ----------------------------------------------------------------------------------
 
     def health(self) -> dict[str, Any]:
+        """Database reachability plus cache statistics (size, hits, misses, hit ratio)."""
         return self._health(self._safe(lambda: self._run(self.store.health)))
 
     async def ahealth(self) -> dict[str, Any]:
+        """Async form of :meth:`health`."""
         try:
             ok = await self._arun(self.store.health)
         except _UNAVAILABLE as e:
@@ -420,6 +424,9 @@ class PromptRegistry:
         tags: Sequence[str] = (),
         metadata: dict[str, Any] | None = None,
     ) -> PromptRecord:
+        """Create a prompt slot. ``type`` is ``text`` or ``chat``; ``metadata`` is validated against ``metadata_model``
+        when set.
+        """
         self._check_metadata(metadata)
         return self._run(self.store.create_prompt, name, type, self._actor(actor), description, tags, metadata)
 
@@ -433,13 +440,16 @@ class PromptRegistry:
         tags: Sequence[str] = (),
         metadata: dict[str, Any] | None = None,
     ) -> PromptRecord:
+        """Async form of :meth:`create_prompt`."""
         self._check_metadata(metadata)
         return await self._arun(self.store.create_prompt, name, type, self._actor(actor), description, tags, metadata)
 
     def get_prompt(self, name: str) -> PromptRecord:
+        """The prompt record (name, type, tags, metadata, archived_at, timestamps)."""
         return self._run(self.store.get_prompt, name)
 
     async def aget_prompt(self, name: str) -> PromptRecord:
+        """Async form of :meth:`get_prompt`."""
         return await self._arun(self.store.get_prompt, name)
 
     def list_prompts(
@@ -450,6 +460,7 @@ class PromptRegistry:
         metadata: dict[str, Any] | None = None,
         include_archived: bool = False,
     ) -> list[PromptRecord]:
+        """Prompts matching a name substring, a tag and/or top-level metadata values; archived ones only when asked."""
         return self._run(self.store.list_prompts, q=q, tag=tag, metadata=metadata, include_archived=include_archived)
 
     async def alist_prompts(
@@ -460,17 +471,20 @@ class PromptRegistry:
         metadata: dict[str, Any] | None = None,
         include_archived: bool = False,
     ) -> list[PromptRecord]:
+        """Async form of :meth:`list_prompts`."""
         return await self._arun(
             self.store.list_prompts, q=q, tag=tag, metadata=metadata, include_archived=include_archived
         )
 
     def update_metadata(self, name: str, metadata: dict[str, Any], *, actor: str | None = None) -> PromptRecord:
+        """Replace a prompt's metadata without creating a version. Audited."""
         self._check_metadata(metadata)
         r = self._run(self.store.update_metadata, name, metadata, self._actor(actor))
         self._invalidate(name)
         return r
 
     async def aupdate_metadata(self, name: str, metadata: dict[str, Any], *, actor: str | None = None) -> PromptRecord:
+        """Async form of :meth:`update_metadata`."""
         self._check_metadata(metadata)
         r = await self._arun(self.store.update_metadata, name, metadata, self._actor(actor))
         self._invalidate(name)
@@ -479,19 +493,23 @@ class PromptRegistry:
     def update_prompt(
         self, name: str, *, actor: str | None = None, description: str | None = None, tags: Sequence[str] | None = None
     ) -> PromptRecord:
+        """Change description and/or tags. Audited."""
         return self._run(self.store.update_prompt, name, self._actor(actor), description=description, tags=tags)
 
     async def aupdate_prompt(
         self, name: str, *, actor: str | None = None, description: str | None = None, tags: Sequence[str] | None = None
     ) -> PromptRecord:
+        """Async form of :meth:`update_prompt`."""
         return await self._arun(self.store.update_prompt, name, self._actor(actor), description=description, tags=tags)
 
     def archive(self, name: str, *, actor: str | None = None, archived: bool = True) -> PromptRecord:
+        """Hide a prompt from lists and from ``get()`` (``archived=False`` restores). History is kept."""
         r = self._run(self.store.archive, name, self._actor(actor), archived)
         self._invalidate(name)
         return r
 
     async def aarchive(self, name: str, *, actor: str | None = None, archived: bool = True) -> PromptRecord:
+        """Async form of :meth:`archive`."""
         r = await self._arun(self.store.archive, name, self._actor(actor), archived)
         self._invalidate(name)
         return r
@@ -508,6 +526,10 @@ class PromptRegistry:
         config: dict[str, Any] | None = None,
         notes: dict[str, Any] | None = None,
     ) -> VersionRecord:
+        """Save an immutable version and move ``latest``. ``config=None`` keeps the previous version's config;
+        ``notes`` is free-form JSON. The returned record carries ``warning`` when a locale variant's variables
+        differ from the default locale's production version.
+        """
         self._check_config(config)
         r = self._run(
             self.store.create_version,
@@ -535,6 +557,7 @@ class PromptRegistry:
         config: dict[str, Any] | None = None,
         notes: dict[str, Any] | None = None,
     ) -> VersionRecord:
+        """Async form of :meth:`create_version`."""
         self._check_config(config)
         r = await self._arun(
             self.store.create_version,
@@ -551,6 +574,7 @@ class PromptRegistry:
         return r
 
     def history(self, name: str, locale: str | None = None) -> list[VersionRecord]:
+        """Versions of a prompt, newest first, optionally for one locale."""
         return self._run(self.store.history, name, locale)
 
     def stale_locales(self, name: str) -> list[str]:
@@ -558,27 +582,35 @@ class PromptRegistry:
         return stale_locales(self.history(name), self.labels(name), self.default_locale)
 
     async def astale_locales(self, name: str) -> list[str]:
+        """Async form of :meth:`stale_locales`."""
         return stale_locales(await self.ahistory(name), await self.alabels(name), self.default_locale)
 
     async def ahistory(self, name: str, locale: str | None = None) -> list[VersionRecord]:
+        """Async form of :meth:`history`."""
         return await self._arun(self.store.history, name, locale)
 
     def diff(self, name: str, a: int, b: int, locale: str | None = None) -> str:
+        """Unified diff of format, template and config between versions ``a`` and ``b``."""
         return self._run(self.store.diff, name, a, b, locale)
 
     async def adiff(self, name: str, a: int, b: int, locale: str | None = None) -> str:
+        """Async form of :meth:`diff`."""
         return await self._arun(self.store.diff, name, a, b, locale)
 
     def labels(self, name: str, locale: str | None = None) -> list[LabelRecord]:
+        """Every label of a prompt (all locales, or one), with the version each points to."""
         return self._run(self.store.labels, name, locale)
 
     async def alabels(self, name: str, locale: str | None = None) -> list[LabelRecord]:
+        """Async form of :meth:`labels`."""
         return await self._arun(self.store.labels, name, locale)
 
     def label_history(self, name: str, label: str, locale: str | None = None) -> list[dict[str, Any]]:
+        """Moves of one label, newest first, with actor, reason and change request."""
         return self._run(self.store.label_history, name, label, locale)
 
     async def alabel_history(self, name: str, label: str, locale: str | None = None) -> list[dict[str, Any]]:
+        """Async form of :meth:`label_history`."""
         return await self._arun(self.store.label_history, name, label, locale)
 
     def publish(
@@ -593,6 +625,9 @@ class PromptRegistry:
         reason: str | None = None,
         force: bool = False,
     ) -> LabelRecord:
+        """Move ``label`` to ``version``. Protected labels need an approved change request unless ``force=True``
+        (break-glass, recorded with ``reason``). ``expected_current`` is an optimistic lock.
+        """
         r = self._run(
             self.store.publish,
             name,
@@ -619,6 +654,7 @@ class PromptRegistry:
         reason: str | None = None,
         force: bool = False,
     ) -> LabelRecord:
+        """Async form of :meth:`publish`."""
         r = await self._arun(
             self.store.publish,
             name,
@@ -636,6 +672,7 @@ class PromptRegistry:
     def rollback(
         self, name: str, label: str, *, actor: str | None = None, locale: str | None = None, reason: str | None = None
     ) -> LabelRecord:
+        """Move ``label`` back to the version it pointed to before its last move (an undo; a second call redoes)."""
         r = self._run(self.store.rollback, name, label, actor=self._actor(actor), locale=locale, reason=reason)
         self._invalidate(name)
         return r
@@ -643,6 +680,7 @@ class PromptRegistry:
     async def arollback(
         self, name: str, label: str, *, actor: str | None = None, locale: str | None = None, reason: str | None = None
     ) -> LabelRecord:
+        """Async form of :meth:`rollback`."""
         r = await self._arun(self.store.rollback, name, label, actor=self._actor(actor), locale=locale, reason=reason)
         self._invalidate(name)
         return r
@@ -657,6 +695,7 @@ class PromptRegistry:
         locale: str | None = None,
         comment: str | None = None,
     ) -> ChangeRequestRecord:
+        """Open a change request to move ``label`` to ``version``."""
         return self._run(
             self.store.request_change, name, version, label, actor=self._actor(actor), locale=locale, comment=comment
         )
@@ -671,30 +710,39 @@ class PromptRegistry:
         locale: str | None = None,
         comment: str | None = None,
     ) -> ChangeRequestRecord:
+        """Async form of :meth:`request_change`."""
         return await self._arun(
             self.store.request_change, name, version, label, actor=self._actor(actor), locale=locale, comment=comment
         )
 
     def approve(self, cr_id: int, *, actor: str | None = None, comment: str | None = None) -> ChangeRequestRecord:
+        """Approve an open change request. The approver must differ from the author when ``require_distinct_approver``
+        is on.
+        """
         return self._run(self.store.approve, cr_id, self._actor(actor), comment)
 
     async def aapprove(
         self, cr_id: int, *, actor: str | None = None, comment: str | None = None
     ) -> ChangeRequestRecord:
+        """Async form of :meth:`approve`."""
         return await self._arun(self.store.approve, cr_id, self._actor(actor), comment)
 
     def reject(self, cr_id: int, *, actor: str | None = None, comment: str | None = None) -> ChangeRequestRecord:
+        """Reject an open change request with an optional comment."""
         return self._run(self.store.reject, cr_id, self._actor(actor), comment)
 
     async def areject(self, cr_id: int, *, actor: str | None = None, comment: str | None = None) -> ChangeRequestRecord:
+        """Async form of :meth:`reject`."""
         return await self._arun(self.store.reject, cr_id, self._actor(actor), comment)
 
     def list_change_requests(self, name: str | None = None, status: str | None = None) -> list[ChangeRequestRecord]:
+        """Change requests, newest first, optionally for one prompt and/or one status."""
         return self._run(self.store.list_change_requests, name, status)
 
     async def alist_change_requests(
         self, name: str | None = None, status: str | None = None
     ) -> list[ChangeRequestRecord]:
+        """Async form of :meth:`list_change_requests`."""
         return await self._arun(self.store.list_change_requests, name, status)
 
     def audit(
@@ -705,6 +753,7 @@ class PromptRegistry:
         actor: str | None = None,
         limit: int = 200,
     ) -> list[AuditRecord]:
+        """Audit records, newest first, filtered by target type, target id prefix and/or actor."""
         return self._run(self.store.audit, target_type=target_type, target_id=target_id, actor=actor, limit=limit)
 
     async def aaudit(
@@ -715,19 +764,25 @@ class PromptRegistry:
         actor: str | None = None,
         limit: int = 200,
     ) -> list[AuditRecord]:
+        """Async form of :meth:`audit`."""
         return await self._arun(
             self.store.audit, target_type=target_type, target_id=target_id, actor=actor, limit=limit
         )
 
     def export(self, names: Sequence[str] | None = None) -> dict[str, Any]:
+        """Prompts, versions and labels as plain data (JSON/YAML friendly), optionally only ``names``."""
         return self._run(self.store.export_all, names)
 
     async def aexport(self, names: Sequence[str] | None = None) -> dict[str, Any]:
+        """Async form of :meth:`export`."""
         return await self._arun(self.store.export_all, names)
 
     def import_prompts(
         self, data: dict[str, Any], *, actor: str | None = None, set_labels: bool = True
     ) -> dict[str, int]:
+        """Create missing prompts and versions from an export (versions matched by checksum); set labels unless
+        ``set_labels=False``.
+        """
         r = self._run(self.store.import_all, data, self._actor(actor), set_labels=set_labels)
         self.cache.invalidate()
         return r
@@ -735,12 +790,15 @@ class PromptRegistry:
     async def aimport_prompts(
         self, data: dict[str, Any], *, actor: str | None = None, set_labels: bool = True
     ) -> dict[str, int]:
+        """Async form of :meth:`import_prompts`."""
         r = await self._arun(self.store.import_all, data, self._actor(actor), set_labels=set_labels)
         self.cache.invalidate()
         return r
 
-    import_ = import_prompts  # old name, kept for compatibility
+    import_ = import_prompts
+    """Old name of :meth:`import_prompts`, kept for compatibility."""
     aimport = aimport_prompts
+    """Old name of :meth:`aimport_prompts`, kept for compatibility."""
 
     def _invalidate(self, name: str) -> None:
         """Drop this process's handles for ``name`` and for every prompt that embeds it as a fragment."""
@@ -805,6 +863,7 @@ class PromptAccessor(Generic[V, C, M]):
         default: str | list[Message] | list[dict[str, Any]] | None = None,
         ttl: float | None = None,
     ) -> Prompt[V, C, M]:
+        """Resolve a prompt handle. Cache hit: no I/O. Miss: one indexed query (plus one per fragment)."""
         return self.registry._get(
             self.name, label, locale, default, ttl, self.variables, self.config, self.metadata, self._tag
         )
@@ -817,6 +876,7 @@ class PromptAccessor(Generic[V, C, M]):
         default: str | list[Message] | list[dict[str, Any]] | None = None,
         ttl: float | None = None,
     ) -> Prompt[V, C, M]:
+        """Typed async ``get()``: a ``Prompt[V, C, M]`` for this prompt name."""
         return await self.registry._aget(
             self.name, label, locale, default, ttl, self.variables, self.config, self.metadata, self._tag
         )

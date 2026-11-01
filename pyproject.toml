@@ -51,7 +51,7 @@ Changelog = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CHANG
 packages = ["src/promptpivot"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/promptpivot", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+include = ["src/promptpivot", "tests", "docs", "README.md", "LICENSE", "CHANGELOG.md", "llms.txt"]
 
 [dependency-groups]
 dev = [
