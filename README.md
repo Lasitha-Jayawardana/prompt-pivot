@@ -15,10 +15,11 @@ workers.
 
 **Documentation**
 
-- [Agent and developer guide](src/promptpivot/agent-guide.md): the rules that are easy to get wrong, in two pages. Also `prompt-pivot docs` or `promptpivot.agent_guide()` in any environment where the package is installed, so a coding agent can read the guide for the exact installed version.
-- [Feature guide](docs/guide.md): every feature with code, UI and CLI usage, use cases, a UI walkthrough, when-to-use decisions and troubleshooting.
-- [API reference](docs/reference.md): generated from the code and checked by the test suite.
-- [llms.txt](llms.txt): an index of these for AI tools.
+- [Agent and developer guide](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/src/promptpivot/agent-guide.md): the rules that are easy to get wrong, in two pages. Also `prompt-pivot docs` or `promptpivot.agent_guide()` wherever the package is installed, so a coding agent reads the guide for the exact installed version.
+- [Agent Skill (SKILL.md)](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/skills/prompt-pivot/SKILL.md): the same guide in the [Agent Skills](https://agentskills.io) format. `prompt-pivot skill` writes it into your project (see [AI coding agents](#ai-coding-agents)).
+- [Feature guide](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/docs/guide.md): every feature with code, UI and CLI usage, use cases, a UI walkthrough, when-to-use decisions and troubleshooting.
+- [API reference](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/docs/reference.md): generated from the code and checked by the test suite.
+- [Changelog](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CHANGELOG.md) and [llms.txt](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/llms.txt), an index of these for AI tools.
 
 ## Install
 
@@ -50,7 +51,7 @@ or from code: `from promptpivot.migrations import upgrade; upgrade(engine)`.
 ```python
 from fastapi import Depends, FastAPI
 from sqlalchemy.ext.asyncio import create_async_engine
-from promptpivot import PromptRegistry, Principal
+from prompt-pivot import PromptRegistry, Principal
 from promptpivot.fastapi import admin_router
 
 engine = create_async_engine("postgresql+asyncpg://user:pass@host/db")   # async or sync engine
@@ -105,7 +106,7 @@ owner: str = p.metadata.owner
 `compile(**kwargs)` validates the keyword arguments against the variables model and raises
 `PromptValidationError` on a mismatch. A custom `config=` model types `p.config` the same way.
 
-**5. Open `/admin/prompts`** to edit, preview, publish and roll back. See [examples/app.py](examples/app.py)
+**5. Open `/admin/prompts`** to edit, preview, publish and roll back. See [examples/app.py](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/examples/app.py)
 for a runnable demo (`uvicorn examples.app:app --reload`).
 
 ## Concepts
@@ -273,7 +274,7 @@ never sent to end users by the package.
 ### Migrating existing prompts
 
 Most teams start with prompts hardcoded in Python. Paste each one into *New prompt* → *New
-version* in the UI, or write them once as an export file and use *Import* (UI), `promptpivot import`
+version* in the UI, or write them once as an export file and use *Import* (UI), `prompt-pivot import`
 (CLI) or `POST api/import`. Then replace the constant in code with `prompts.get("name")` and keep
 the old string as `default=` until you trust the database path.
 
@@ -281,16 +282,18 @@ the old string as `default=` until you trust the database path.
 
 ```bash
 export PROMPTPIVOT_DATABASE_URL=postgresql+psycopg://user:pass@host/db
-promptpivot migrate                                   # create or upgrade the schema
-promptpivot list                                      # prompts and their labels
-promptpivot export -o prompts.yaml                    # backup / copy between environments (.json or .yaml)
-promptpivot import prompts.yaml [--no-labels]         # versions matched by checksum, nothing duplicated
-promptpivot publish support/agent 7 staging --locale fr
-promptpivot publish support/agent 7 production --force --reason "incident 123"
-promptpivot rollback support/agent production
+prompt-pivot migrate                                   # create or upgrade the schema
+prompt-pivot list                                      # prompts and their labels
+prompt-pivot export -o prompts.yaml                    # backup / copy between environments (.json or .yaml)
+prompt-pivot import prompts.yaml [--no-labels]         # versions matched by checksum, nothing duplicated
+prompt-pivot publish support/agent 7 staging --locale fr
+prompt-pivot publish support/agent 7 production --force --reason "incident 123"
+prompt-pivot rollback support/agent production
+prompt-pivot docs                                     # print the usage guide for developers and coding agents
+prompt-pivot skill                                    # write it as an Agent Skill to .claude/skills/prompt-pivot/SKILL.md
 ```
 
-Async URLs (`+asyncpg`, `+aiomysql`) work too. `--prefix` or `PROMPTPIVOT_TABLE_PREFIX` selects the
+`docs` and `skill` need no database URL. Async URLs (`+asyncpg`, `+aiomysql`) work too. `--prefix` or `PROMPTPIVOT_TABLE_PREFIX` selects the
 table prefix; `--actor` sets the audit actor (defaults to `$USER`).
 
 ## Migrations
@@ -305,7 +308,7 @@ back to `create_all`, which is fine for development.
 
 ## Production checklist
 
-1. Install `promptpivot[alembic]` and run `promptpivot migrate` in your deploy pipeline.
+1. Install `promptpivot[alembic]` and run `prompt-pivot migrate` in your deploy pipeline.
 2. Mount the router behind your real auth; give `prompts:publish:production` only to approvers or
    on-call, and `prompts:admin` to very few people.
 3. Serve the admin UI over HTTPS (the CSRF cookie is marked `secure` on HTTPS requests).
@@ -319,13 +322,41 @@ back to `create_all`, which is fine for development.
 
 ## Rollback runbook
 
-1. Open `/admin/prompts/p/<name>?locale=<locale>` (or run `promptpivot rollback <name> production`).
+1. Open `/admin/prompts/p/<name>?locale=<locale>` (or run `prompt-pivot rollback <name> production`).
 2. Click **Rollback production**. The label moves back to its previous version in one transaction;
    the audit log records who did it and when.
 3. The worker that handled the request serves the old version at once; all other workers within
    `cache_ttl`. Verify with `GET api/prompts/<name>` (labels) and your LLM spans' `prompt.version`.
 4. Rolling back does not need a change request: it only re-targets a version that was already
    approved for that label.
+
+## AI coding agents
+
+Coding agents (Claude Code, Cursor, Codex, Copilot and others) write prompt code too, and the mistakes
+they make are predictable: awaiting the sync form, reading version numbers instead of labels, escaping
+JSON in `python` templates, calling the store directly. The package ships the rules that prevent this,
+in three forms that all match the installed version:
+
+```bash
+prompt-pivot skill                 # writes .claude/skills/prompt-pivot/SKILL.md into the project
+prompt-pivot skill --dir .agents/skills   # or any other skills directory your agent reads
+prompt-pivot docs                  # prints the same guide as plain Markdown
+python -c "import promptpivot; print(promptpivot.agent_guide())"
+```
+
+Run `prompt-pivot skill` once after installing and commit the file. Agents that support
+[Agent Skills](https://agentskills.io) then load the rules on their own whenever a task touches prompts,
+with no instruction from you. For agents without skill support, add one line to your `CLAUDE.md`,
+`AGENTS.md` or equivalent:
+
+```text
+Prompts are managed with prompt-pivot. Run `prompt-pivot docs` and follow it before changing prompt code.
+```
+
+The skill is also published in the repository at
+[skills/prompt-pivot/SKILL.md](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/skills/prompt-pivot/SKILL.md) for tools that install skills from
+GitHub (for example `npx skills add Lasitha-Jayawardana/prompt-pivot`). Prefer the `prompt-pivot skill`
+command when you can: it always matches the version you have installed.
 
 ## Using a local checkout in other projects
 

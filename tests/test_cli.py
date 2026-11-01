@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -105,7 +106,6 @@ def test_migration_from_initial_schema(tmp_path):
 def test_reference_is_up_to_date():
     """docs/reference.md is generated from the code; regenerate with `python docs/gen_reference.py`."""
     import importlib.util
-    from pathlib import Path
 
     path = Path(__file__).resolve().parents[1] / "docs" / "gen_reference.py"
     spec = importlib.util.spec_from_file_location("gen_reference", path)
@@ -119,3 +119,21 @@ def test_docs_command(capsys):
     assert main(["docs"]) == 0
     out = capsys.readouterr().out
     assert "prompt-pivot" in out and "aget" in out and "Do not" in out
+
+
+def test_skill_file_is_up_to_date():
+    """skills/prompt-pivot/SKILL.md is generated; regenerate with `prompt-pivot skill --dir skills`."""
+    import promptpivot
+
+    path = Path(__file__).resolve().parents[1] / "skills" / "prompt-pivot" / "SKILL.md"
+    assert path.read_text() == promptpivot.agent_skill(), "SKILL.md is stale: run prompt-pivot skill --dir skills"
+
+
+def test_skill_command(tmp_path, capsys):
+    assert main(["skill", "--dir", str(tmp_path)]) == 0
+    assert capsys.readouterr().out.startswith("wrote ")
+    text = (tmp_path / "prompt-pivot" / "SKILL.md").read_text()
+    assert text.startswith("---\nname: prompt-pivot\ndescription: ")
+    assert "## Do not" in text
+    assert main(["skill", "--print"]) == 0
+    assert capsys.readouterr().out == text

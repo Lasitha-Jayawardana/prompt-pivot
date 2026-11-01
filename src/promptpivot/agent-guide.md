@@ -1,8 +1,11 @@
 # prompt-pivot: guide for coding agents and developers
 
 Read this before writing code that uses `promptpivot`. It is short on purpose and states the rules
-that are easy to get wrong. Print the version installed in an environment with `prompt-pivot docs`
-or `python -c "import promptpivot; print(promptpivot.agent_guide())"`.
+that are easy to get wrong. Print the copy that matches the installed version with `prompt-pivot docs`
+or `python -c "import promptpivot; print(promptpivot.agent_guide())"`. If you are reading this on
+GitHub, features may be newer than the installed package: check `promptpivot.__version__` against the
+changelog before using them. `prompt-pivot skill` writes this guide as an Agent Skill (`SKILL.md`)
+into the project so it loads automatically next time.
 
 ## What the library is
 
@@ -19,7 +22,7 @@ labels (`production`, `staging`, `latest`, custom), locales, change requests, fr
 ```python
 from fastapi import Depends, FastAPI
 from sqlalchemy.ext.asyncio import create_async_engine
-from promptpivot import PromptRegistry, Principal
+from prompt-pivot import PromptRegistry, Principal
 from promptpivot.fastapi import admin_router
 
 engine = create_async_engine(DATABASE_URL)  # sync Engine works too
@@ -142,6 +145,7 @@ All inherit from `PromptPivotError`.
 
 ## More
 
-README (quickstart, settings, security), `docs/guide.md` (every feature with code, UI and use
-cases), `docs/reference.md` (generated API reference), `GET <prefix>/openapi.json` in a running app
-for the REST API.
+In the repository https://github.com/Lasitha-Jayawardana/prompt-pivot: README (quickstart,
+settings, security), `docs/guide.md` (every feature with code, UI and use cases), `docs/reference.md`
+(generated API reference), `skills/prompt-pivot/SKILL.md` (this guide as an Agent Skill). In a running
+app: `GET <prefix>/openapi.json` for the REST API.

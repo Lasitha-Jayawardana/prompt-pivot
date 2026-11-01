@@ -1,6 +1,6 @@
 # prompt-pivot API reference
 
-Generated from `promptpivot` 0.1.3 by `docs/gen_reference.py`. Do not edit by hand.
+Generated from `promptpivot` 0.2.0 by `docs/gen_reference.py`. Do not edit by hand.
 
 Import everything below from `promptpivot` unless a module path is shown.
 
@@ -14,6 +14,8 @@ Accepts a sync ``Engine`` or an ``AsyncEngine``. Every method has a sync and an 
 async form. With an ``AsyncEngine`` the sync forms work from a worker thread (for example a
 sync FastAPI route) once the async side has run, and from plain scripts; they cannot be called
 from inside a running event loop.
+
+Usage rules for developers and coding agents: ``promptpivot.agent_guide()`` or ``prompt-pivot docs``.
 
 #### `async PromptRegistry.aapprove(self, cr_id: 'int', *, actor: 'str | None' = None, comment: 'str | None' = None) -> 'ChangeRequestRecord'`
 

@@ -236,7 +236,7 @@ It is an undo: rolling back twice re-applies the move. The UI button shows the d
 prompts.rollback("support/agent", "production", actor="ops")
 ```
 ```bash
-promptpivot rollback support/agent production --locale en
+prompt-pivot rollback support/agent production --locale en
 ```
 
 **UI.** *Rollback production (vN)* button under the versions table. The worker that handled the
@@ -352,13 +352,13 @@ prompts.audit(actor="ops")
 
 ```bash
 export PROMPTPIVOT_DATABASE_URL=postgresql+psycopg://...
-promptpivot migrate                           # create or upgrade tables (Alembic when installed)
-promptpivot list
-promptpivot export -o prompts.yaml            # or .json; selected names as extra args
-promptpivot import prompts.yaml               # versions matched by checksum; labels set unless --no-labels
-promptpivot publish support/agent 7 staging
-promptpivot publish support/agent 7 production --force --reason "incident"
-promptpivot rollback support/agent production
+prompt-pivot migrate                           # create or upgrade tables (Alembic when installed)
+prompt-pivot list
+prompt-pivot export -o prompts.yaml            # or .json; selected names as extra args
+prompt-pivot import prompts.yaml               # versions matched by checksum; labels set unless --no-labels
+prompt-pivot publish support/agent 7 staging
+prompt-pivot publish support/agent 7 production --force --reason "incident"
+prompt-pivot rollback support/agent production
 ```
 
 `prompts.export()` / `prompts.import_prompts(data)` do the same from code, and admins have an
@@ -489,7 +489,7 @@ serves it within `cache_ttl`.
 warning when saving.
 
 **Incident: a bad prompt is live.** On-call opens the prompt, clicks *Rollback production*, or
-runs `promptpivot rollback <name> production`. Confirm with the labels on the list page and the
+runs `prompt-pivot rollback <name> production`. Confirm with the labels on the list page and the
 `prompt.version` attribute on new LLM spans.
 
 **Canary a rewrite.** Publish the new version to a `canary` label (no approval needed for custom
@@ -524,9 +524,25 @@ version*, or write one export JSON and use *Import*. Replace the Python constant
 `PROMPTPIVOT_DEV_UI=1` in the environment gives an all-permissions user; the dependency refuses to
 run without that variable.
 
-**Seed a new environment.** `promptpivot export -o prompts.yaml` on the source database,
-`promptpivot import prompts.yaml` on the target. Labels are set as in the file; use `--no-labels` to
+**Seed a new environment.** `prompt-pivot export -o prompts.yaml` on the source database,
+`prompt-pivot import prompts.yaml` on the target. Labels are set as in the file; use `--no-labels` to
 import versions only and publish by hand.
 
 **Grant a PM edit rights without production access.** Give them `prompts:read`, `prompts:edit`,
 `prompts:publish:staging`. They can iterate and request production; they cannot move it.
+
+## 8. AI coding agents
+
+The library ships its own usage rules so that an agent working in your codebase does not need prior
+knowledge or a human prompt. All three forms match the installed version:
+
+| Form | Command | Use it when |
+| --- | --- | --- |
+| Agent Skill | `prompt-pivot skill` (writes `.claude/skills/prompt-pivot/SKILL.md`; `--dir` for other agents) | your agent supports [Agent Skills](https://agentskills.io): it loads the rules on its own when a task touches prompts |
+| Plain guide | `prompt-pivot docs` or `promptpivot.agent_guide()` | an agent or a developer wants to read the rules once, or you paste a pointer into `CLAUDE.md` / `AGENTS.md` |
+| Repository copy | `skills/prompt-pivot/SKILL.md` on GitHub | a tool installs skills from GitHub; check the version in its front matter against the installed package |
+
+Run `prompt-pivot skill` once after installing, commit the file, and re-run it after upgrading the
+package so the rules follow the version. The guide covers the sync/async forms, labels versus versions,
+template brace rules, fragments, the approval flow, permissions and the error table; everything an
+agent needs to write a correct `get` or `aget` and to avoid `force=True` in normal code.

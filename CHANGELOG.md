@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-01)
 
+- Agent Skill: `skills/prompt-pivot/SKILL.md` in the repository and `prompt-pivot skill`, which writes
+  the installed version's guide as a `SKILL.md` into a project (`--dir`, `--print`);
+  `promptpivot.agent_skill()`. Module and `PromptRegistry` docstrings point to the guide.
+- README links are absolute so they work on PyPI; `Documentation`, `Agent Guide` and `Agent Skill`
+  project URLs. CLI examples in the docs use the real command name `prompt-pivot`.
 - Documentation: docstrings on every public method; generated `docs/reference.md` (checked by
   tests); `src/promptpivot/agent-guide.md` shipped in the wheel and printed by `prompt-pivot docs` /
   `promptpivot.agent_guide()`; `llms.txt`; guide sections on which option to choose when and on

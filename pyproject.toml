@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-pivot"
-version = "0.1.3"
+version = "0.2.0"
 description = "Store, version, edit and publish LLM prompts at runtime from inside your FastAPI app, using your own PostgreSQL or MySQL database."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "Lasitha Jayawardana" }]
-keywords = ["llm", "prompts", "prompt-management", "fastapi", "sqlalchemy"]
+keywords = ["llm", "prompts", "prompt-management", "prompt-versioning", "fastapi", "sqlalchemy", "agent-skills"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Framework :: FastAPI",
@@ -44,6 +44,9 @@ prompt-pivot = "promptpivot.cli:main"
 [project.urls]
 Homepage = "https://github.com/Lasitha-Jayawardana/prompt-pivot"
 Repository = "https://github.com/Lasitha-Jayawardana/prompt-pivot"
+Documentation = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/docs/guide.md"
+"Agent Guide" = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/src/promptpivot/agent-guide.md"
+"Agent Skill" = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/skills/prompt-pivot/SKILL.md"
 Issues = "https://github.com/Lasitha-Jayawardana/prompt-pivot/issues"
 Changelog = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CHANGELOG.md"
 
@@ -51,7 +54,7 @@ Changelog = "https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CHANG
 packages = ["src/promptpivot"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/promptpivot", "tests", "docs", "README.md", "LICENSE", "CHANGELOG.md", "llms.txt"]
+include = ["src/promptpivot", "tests", "docs", "skills", "README.md", "LICENSE", "CHANGELOG.md", "llms.txt"]
 
 [dependency-groups]
 dev = [

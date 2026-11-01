@@ -6,13 +6,14 @@ Start with the agent guide: it states the rules that are easy to get wrong (asyn
 
 ## Docs
 
-- [Agent and developer guide](src/promptpivot/agent-guide.md): how to use the library correctly; also `prompt-pivot docs`
-- [README](README.md): install, quickstart, concepts, settings, security, production checklist, rollback runbook
-- [Feature guide](docs/guide.md): every feature with code, UI and CLI usage, use cases, UI walkthrough, when-to-use decisions, troubleshooting
-- [API reference](docs/reference.md): generated from the code, every public class and method
-- [Changelog](CHANGELOG.md)
+- [Agent and developer guide](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/src/promptpivot/agent-guide.md): how to use the library correctly; also `prompt-pivot docs` in any environment with the package installed
+- [Agent Skill](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/skills/prompt-pivot/SKILL.md): the same guide as a SKILL.md; `prompt-pivot skill` writes it into a project
+- [README](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/README.md): install, quickstart, concepts, settings, security, production checklist, rollback runbook
+- [Feature guide](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/docs/guide.md): every feature with code, UI and CLI usage, use cases, UI walkthrough, when-to-use decisions, troubleshooting
+- [API reference](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/docs/reference.md): generated from the code, every public class and method
+- [Changelog](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CHANGELOG.md)
 
 ## Optional
 
-- [Example app](examples/app.py): runnable FastAPI demo with SQLite
-- [Contributing](CONTRIBUTING.md)
+- [Example app](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/examples/app.py): runnable FastAPI demo with SQLite
+- [Contributing](https://github.com/Lasitha-Jayawardana/prompt-pivot/blob/main/CONTRIBUTING.md)

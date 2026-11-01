@@ -1,4 +1,4 @@
-"""``promptpivot`` command line: migrate, export, import, publish, rollback, list."""
+"""``promptpivot`` command line: migrate, export, import, publish, rollback, list, docs, skill."""
 
 from __future__ import annotations
 
@@ -82,11 +82,27 @@ def main(argv: list[str] | None = None) -> int:
     ls = sub.add_parser("list", help="list prompts and their labels")
     ls.add_argument("-q")
     sub.add_parser("docs", help="print the usage guide for developers and coding agents")
+    sk = sub.add_parser("skill", help="write the usage guide as an Agent Skill (SKILL.md) into a project")
+    sk.add_argument("--dir", default=".claude/skills", help="skills directory (default .claude/skills)")
+    sk.add_argument("--print", action="store_true", help="print SKILL.md to stdout instead of writing it")
     args = ap.parse_args(argv)
     if args.cmd == "docs":
         from . import agent_guide
 
         sys.stdout.write(agent_guide())
+        return 0
+    if args.cmd == "skill":
+        from pathlib import Path
+
+        from . import SKILL_NAME, agent_skill
+
+        if args.print:
+            sys.stdout.write(agent_skill())
+            return 0
+        target = Path(args.dir) / SKILL_NAME / "SKILL.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(agent_skill(), encoding="utf-8")
+        print(f"wrote {target}")
         return 0
     if not args.url:
         ap.error("--url or PROMPTPIVOT_DATABASE_URL is required")

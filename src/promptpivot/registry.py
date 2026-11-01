@@ -53,6 +53,8 @@ class PromptRegistry:
     async form. With an ``AsyncEngine`` the sync forms work from a worker thread (for example a
     sync FastAPI route) once the async side has run, and from plain scripts; they cannot be called
     from inside a running event loop.
+
+    Usage rules for developers and coding agents: ``promptpivot.agent_guide()`` or ``prompt-pivot docs``.
     """
 
     def __init__(
