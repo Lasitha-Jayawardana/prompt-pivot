@@ -19,7 +19,7 @@
 <table><tr><th>v</th><th>Labels</th><th>Format</th><th>Message</th><th>By</th><th>At</th><th>Actions</th></tr>
 {% for v in versions %}<tr><td><b>v{{ v.version }}</b></td>
 <td>{% for l in label_map.get(v.id, []) %}<span class="lbl {{ l }}">{{ l }}</span>{% endfor %}</td>
-<td>{{ v.format }}</td><td>{{ v.message }}<div class="mut">vars: {{ v.variables|join(', ') or '—' }}</div>{% if v.notes %}<div class="mut">{% for k, val in v.notes.items() %}{{ k }}: {% if val is string and val.startswith('http') %}<a href="{{ val }}">{{ val }}</a>{% else %}{{ val }}{% endif %}{{ '; ' if not loop.last }}{% endfor %}</div>{% endif %}</td><td>{{ v.created_by }}</td><td class="mut">{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+<td>{{ v.format }}</td><td>{{ v.message }}<div class="mut">vars: {{ v.variables|join(', ') or '—' }}</div>{% if frag_refs.get(v.id) %}<div class="mut">fragments: {% for f in frag_refs[v.id] %}<a href="{{ request.url_for('promptpivot_prompt', name=f.split('@')[0]) }}">{{ f }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}{% if v.notes %}<div class="mut">{% for k, val in v.notes.items() %}{{ k }}: {% if val is string and val.startswith('http') %}<a href="{{ val }}">{{ val }}</a>{% else %}{{ val }}{% endif %}{{ '; ' if not loop.last }}{% endfor %}</div>{% endif %}</td><td>{{ v.created_by }}</td><td class="mut">{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
 <td>{% if not loop.last %}<a href="{{ request.url_for('promptpivot_diff', name=prompt.name) }}?a={{ versions[loop.index].version }}&b={{ v.version }}&locale={{ locale }}">diff prev</a> {% endif %}
 <details class="inline"><summary class="inline">more</summary>
 <form class="inline" method="post" action="{{ request.url_for('promptpivot_preview', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ v.version }}"><input type="hidden" name="locale" value="{{ locale }}">
@@ -39,7 +39,7 @@
 <form method="post" action="{{ request.url_for('promptpivot_version', name=prompt.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="locale" value="{{ locale }}">
 <div class="row"><div><label>Format</label><select name="format" id="fmt"><option value="python" {{ 'selected' if latest and latest.format == 'python' }}>python — {name} (other braces, e.g. JSON, stay as text)</option><option value="jinja" {{ 'selected' if latest and latest.format == 'jinja' }}>jinja — {{ '{{ name }}' }}</option></select></div>
 <div><label>Commit message</label><input name="message" required style="width:100%"></div></div>
-<label>Template{% if prompt.type == 'chat' %} (JSON list of {"role", "content"} messages){% endif %} — variables: <span id="vars" class="mono"></span></label>
+<label>Template{% if prompt.type == 'chat' %} (JSON list of {"role", "content"} messages){% endif %} — variables: <span id="vars" class="mono"></span> <span class="mut">· include a shared text prompt with <code>{> common/safety}</code> (<code>@staging</code> or <code>@v3</code> to pin)</span></label>
 <textarea name="template" id="tpl" class="mono" style="min-height:220px" required>{{ template_text }}</textarea>
 <label>Notes (optional JSON: ticket, reviewer, anything about this version)</label>
 <textarea name="notes" class="mono" style="min-height:44px" placeholder='{"ticket": "https://…/PROJ-123"}'></textarea>

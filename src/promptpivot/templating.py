@@ -98,6 +98,34 @@ def _compile_jinja(template: str) -> Callable[[dict[str, Any]], str]:
 # --- public helpers -----------------------------------------------------------------------------
 
 
+_FRAG = re.compile(r"\{>\s*([A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*)(?:@(v\d+|[A-Za-z0-9_\-]+))?\s*\}")
+MAX_FRAGMENT_DEPTH = 8
+
+
+def fragment_refs(template: Any) -> list[tuple[str, str | None]]:
+    """Fragment references in a template, in first-seen order: ``{> name}``, ``{> name@label}``,
+    ``{> name@v3}`` -> ``(name, pin)`` where ``pin`` is None, a label, or ``"v3"``."""
+    template = normalize_template(template)
+    sources = [template] if isinstance(template, str) else [str(m.get("content", "")) for m in template]
+    seen: dict[tuple[str, str | None], None] = {}
+    for src in sources:
+        for m in _FRAG.finditer(src):
+            seen.setdefault((m.group(1), m.group(2)), None)
+    return list(seen)
+
+
+def splice_fragments(template: Any, text_for: Callable[[str, str | None], str]) -> str | list[dict[str, Any]]:
+    """Replace every fragment reference with ``text_for(name, pin)``."""
+    template = normalize_template(template)
+
+    def sub(src: str) -> str:
+        return _FRAG.sub(lambda m: text_for(m.group(1), m.group(2)), src)
+
+    if isinstance(template, str):
+        return sub(template)
+    return [{**m, "content": sub(str(m.get("content", "")))} for m in template]
+
+
 def guess_format(template: Any) -> str:
     """``jinja`` when the template contains Jinja tags or expressions, else ``python``."""
     template = normalize_template(template)

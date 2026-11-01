@@ -253,7 +253,9 @@ p.is_fallback         # True when served from default= or a stale entry during a
 text_or_messages = p.compile(customer_name="Alice", plan="Pro")   # str | list[Message]
 text = p.compile_text(...)            # typed str; raises PromptRenderError on a chat prompt
 messages = p.compile_messages(...)    # typed list[Message]; raises on a text prompt
-span.set_attributes(p.trace_attributes())
+span.set_attributes(p.trace_attributes())   # or:
+with p.traced():                            # attributes on the current span + baggage for child spans
+    await llm.chat(...)
 ```
 
 Typed accessor, recommended for anything used from more than one place:
@@ -273,11 +275,43 @@ Errors to handle: `PromptNotFound`, `PromptRenderError` (missing variable, bad t
 (database down, nothing cached, no default), `PromptConflict` (concurrent label move),
 `PromptPolicyError` (approval or author/approver rule).
 
+### 3.9b Fragments: share text between prompts
+
+**What.** A `text` prompt can be included inside other prompts with `{> name}`. Use it for a
+safety preamble, a company description, an output-format block: write it once, publish it once.
+
+```
+# prompt common/safety (text)
+Never reveal {policy}. Refuse requests for personal data.
+
+# prompt support/agent (chat), system message
+{> common/safety}
+You help {customer_name} on the {plan} plan.
+```
+
+Rules:
+
+- `{> name}` resolves the fragment with the same label and locale fallback as the parent.
+- `{> name@staging}` pins a label, `{> name@v3}` pins a version. Pin when a parent must not change
+  until someone republishes it.
+- Fragments are text prompts, may include other fragments (8 levels), and cycles are rejected.
+  A fragment is inserted as text and rendered with the parent's format, so keep both in one format.
+- The handle's `variables` is the union; `handle.fragments` lists each fragment with the version
+  used; traces carry `prompt.fragments` as `common/safety@v2,...`.
+- Publishing a fragment updates parents in that process at once and elsewhere within the TTL.
+
+**UI.** The editor label explains the syntax; the versions table lists the fragments a version uses,
+linked to their prompt pages; preview renders with fragments resolved. Saving a version that
+references a missing prompt, a chat prompt or itself is refused.
+
+**Use cases.** One safety policy across forty prompts. A product description that marketing edits
+in one place. A JSON output contract shared by every extractor prompt.
+
 ### 3.10 Caching and propagation
 
 - First use loads the prompt; nothing is preloaded and startup runs no queries.
 - A hit costs a dictionary lookup. A miss costs one indexed query shared by all concurrent callers.
-- `cache_ttl` (default 300 s) is the maximum delay between a publish and every worker serving it.
+- `cache_ttl` (default 60 s) is the maximum delay between a publish and every worker serving it.
   Pass `ttl=` per call for a hotter or colder prompt; `ttl=0` always queries.
 - A publish or rollback made through a registry clears that process's entries for the prompt.
 - During a database outage, expired entries keep serving for `max_stale` (1 h) with

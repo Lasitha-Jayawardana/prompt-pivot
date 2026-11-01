@@ -61,7 +61,7 @@ class PromptRegistry:
         *,
         environment: str = "production",
         default_locale: str = "en",
-        cache_ttl: float = 300.0,
+        cache_ttl: float = 60.0,
         cache_max_entries: int = 500,
         max_stale: float = 3600.0,
         table_prefix: str = DEFAULT_PREFIX,
@@ -92,6 +92,7 @@ class PromptRegistry:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._otel: Any = None  # None = not probed, False = absent
         self._last_warn = 0.0
+        self._dependents: dict[str, set[str]] = {}  # fragment name -> prompts that embed it
 
     @classmethod
     def in_memory(cls, **settings: Any) -> PromptRegistry:
@@ -204,12 +205,16 @@ class PromptRegistry:
                 h = self.cache.load(
                     key,
                     lambda: build(
-                        self._run(self.store.resolve, name, label, locale_candidates(locale, self.default_locale))
+                        self._run(
+                            self.store.resolve_expanded, name, label, locale_candidates(locale, self.default_locale)
+                        )
                     ),
                     ttl,
                 )
             else:
-                h = build(self._run(self.store.resolve, name, label, locale_candidates(locale, self.default_locale)))
+                h = build(
+                    self._run(self.store.resolve_expanded, name, label, locale_candidates(locale, self.default_locale))
+                )
         except _UNAVAILABLE as e:
             h = self._on_unavailable(
                 key, name, label, locale, default, ttl, vars_model, cfg_model, meta_model, e, default_format
@@ -242,7 +247,7 @@ class PromptRegistry:
         cands = locale_candidates(locale, self.default_locale)
 
         async def loader() -> Prompt[Any, Any, Any]:
-            return build(await self._arun(self.store.resolve, name, label, cands))
+            return build(await self._arun(self.store.resolve_expanded, name, label, cands))
 
         try:
             h = await (self.cache.aload(key, loader, ttl) if ttl > 0 else loader())
@@ -297,6 +302,10 @@ class PromptRegistry:
 
         def build(row: dict[str, Any]) -> Prompt[Any, Any, Any]:
             template = row["template"]
+            expanded = row.get("expanded", template)
+            fragments = tuple(row.get("fragments") or ())
+            for frag in fragments:
+                self._dependents.setdefault(frag.name, set()).add(name)
             try:
                 config = cfg_model.model_validate(row["config"] or {})
                 meta_raw = row["prompt_metadata"] or {}
@@ -314,9 +323,10 @@ class PromptRegistry:
                 template=template if isinstance(template, str) else [Message(**m) for m in template],
                 config=config,
                 metadata=metadata,
-                variables=tuple(row["variables"] or ()),
+                variables=detect_variables(expanded, row["format"]) if fragments else tuple(row["variables"] or ()),
                 checksum=row["checksum"],
-                _renderer=build_renderer(template, row["format"]),
+                fragments=fragments,
+                _renderer=build_renderer(expanded, row["format"]),
                 _variables_model=vars_model,
             )
 
@@ -457,13 +467,13 @@ class PromptRegistry:
     def update_metadata(self, name: str, metadata: dict[str, Any], *, actor: str | None = None) -> PromptRecord:
         self._check_metadata(metadata)
         r = self._run(self.store.update_metadata, name, metadata, self._actor(actor))
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     async def aupdate_metadata(self, name: str, metadata: dict[str, Any], *, actor: str | None = None) -> PromptRecord:
         self._check_metadata(metadata)
         r = await self._arun(self.store.update_metadata, name, metadata, self._actor(actor))
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     def update_prompt(
@@ -478,12 +488,12 @@ class PromptRegistry:
 
     def archive(self, name: str, *, actor: str | None = None, archived: bool = True) -> PromptRecord:
         r = self._run(self.store.archive, name, self._actor(actor), archived)
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     async def aarchive(self, name: str, *, actor: str | None = None, archived: bool = True) -> PromptRecord:
         r = await self._arun(self.store.archive, name, self._actor(actor), archived)
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     def create_version(
@@ -510,7 +520,7 @@ class PromptRegistry:
             config=config,
             notes=notes,
         )
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     async def acreate_version(
@@ -537,7 +547,7 @@ class PromptRegistry:
             config=config,
             notes=notes,
         )
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     def history(self, name: str, locale: str | None = None) -> list[VersionRecord]:
@@ -594,7 +604,7 @@ class PromptRegistry:
             reason=reason,
             force=force,
         )
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     async def apublish(
@@ -620,21 +630,21 @@ class PromptRegistry:
             reason=reason,
             force=force,
         )
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     def rollback(
         self, name: str, label: str, *, actor: str | None = None, locale: str | None = None, reason: str | None = None
     ) -> LabelRecord:
         r = self._run(self.store.rollback, name, label, actor=self._actor(actor), locale=locale, reason=reason)
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     async def arollback(
         self, name: str, label: str, *, actor: str | None = None, locale: str | None = None, reason: str | None = None
     ) -> LabelRecord:
         r = await self._arun(self.store.rollback, name, label, actor=self._actor(actor), locale=locale, reason=reason)
-        self.cache.invalidate(name)
+        self._invalidate(name)
         return r
 
     def request_change(
@@ -731,6 +741,12 @@ class PromptRegistry:
 
     import_ = import_prompts  # old name, kept for compatibility
     aimport = aimport_prompts
+
+    def _invalidate(self, name: str) -> None:
+        """Drop this process's handles for ``name`` and for every prompt that embeds it as a fragment."""
+        self.cache.invalidate(name)
+        for dependent in self._dependents.get(name, ()):
+            self.cache.invalidate(dependent)
 
     def _actor(self, actor: str | None) -> str:
         return actor or self.default_actor

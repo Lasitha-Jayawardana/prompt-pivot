@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fragments: include a text prompt inside others with `{> name}` (`@label` / `@v3` to pin);
+  resolved at read time with cycle detection, recorded on the handle (`fragments`) and in traces
+  (`prompt.fragments`); shown in the UI and resolved in previews.
+- `Prompt.traced()` context manager: span attributes plus OpenTelemetry baggage for child spans.
+- Default `cache_ttl` lowered from 300 s to 60 s.
 - Per-version `notes` (JSON) in the API, UI, CLI export/import and `create_version(notes=...)`.
 - Prompt names are case-sensitive on MySQL too (binary collation on the name column).
 - List page and `GET api/prompts` filter on top-level metadata (`metadata=owner=cx,team=tier1`).

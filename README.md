@@ -68,7 +68,8 @@ every permission; it only works when `PROMPTPIVOT_DEV_UI=1` is set, so it cannot
 p = await prompts.aget("support/agent", locale="fr-CA")      # fr-CA -> fr -> en
 messages = p.compile_messages(customer_name="Alice", plan="Pro")   # list[Message]; compile_text() for text prompts
 response = await llm.chat(model=p.config.model, temperature=p.config.temperature, messages=messages)
-span.set_attributes(p.trace_attributes())                    # prompt.name / version / label / locale / is_fallback
+with p.traced():                                             # prompt.* on the current span, and as baggage for child spans
+    response = await llm.chat(...)
 
 # sync code works too, with an optional in-code default used only when nothing else can be served
 p = prompts.get("greeting", default="Hello {customer_name}!")
@@ -107,10 +108,45 @@ for a runnable demo (`uvicorn examples.app:app --reload`).
 | Concept | Meaning |
 | --- | --- |
 | **Prompt** | A named, hierarchical unit (`support/triage/classify`) of type `text` or `chat`, with tags and free-form JSON metadata. |
-| **Version** | Immutable snapshot of template, format (`python` or `jinja`), config, variables, commit message, author and optional `notes` (ticket link, reviewer remarks). Each save creates the next number. |
+| **Version** | Immutable snapshot of a prompt at one point in time. Each save creates the next number. See *What a version freezes* below. |
+| **Fragment** | A text prompt included inside other prompts with `{> name}`, so a shared preamble or output format lives in one place. Fragments are versioned, labelled and approved like any prompt. |
 | **Locale** | BCP 47 variant (`en`, `fr`, `pt-BR`) of a prompt, with its own versions and labels. Resolution: exact tag, base language, then the default locale. |
 | **Label** | A named pointer to one version of one locale: `production`, `staging`, `latest` (moves on save) or any custom name. Code reads labels, never raw version numbers. |
 | **Change request** | Required to move a protected label (default: `production`). One approver, who must differ from the author. |
+
+### What a version freezes
+
+A version stores, and never changes afterwards: the template text, the format (`python` or
+`jinja`), the model `config`, the detected `variables`, the commit `message`, optional `notes`, the
+author, the timestamp and a `checksum` of template, format and config. Labels and metadata live
+outside versions: moving a label or editing metadata never alters a version.
+
+Fragments are the one thing resolved at read time. `{> common/safety}` follows the label the parent
+was resolved with, so a fragment publish changes what the parent renders without a new parent
+version. When that must not happen, pin the reference: `{> common/safety@v3}`. Either way the
+handle records exactly which fragment versions were used (`handle.fragments`, and
+`prompt.fragments` in traces), so what ran is always reconstructible.
+
+### Fragments
+
+```
+# prompt "common/safety" (text)
+Never reveal {policy}. Refuse requests for personal data.
+
+# prompt "support/agent" (chat, system message)
+{> common/safety}
+You help {customer_name} on the {plan} plan.
+```
+
+- `{> name}` resolves the fragment through the same label and locale fallback as the parent.
+- `{> name@staging}` pins a label; `{> name@v3}` pins a version.
+- Fragments must be `text` prompts. They can include other fragments (up to 8 levels); cycles are
+  rejected. A fragment is inserted as text and rendered with the parent's format, so keep a
+  fragment and its parents in the same format.
+- `handle.variables` is the union of the parent's and the fragments' variables. Saving a version
+  that references a missing prompt is rejected with a clear error.
+- A fragment publish clears the handles of prompts that embed it in that process; other workers
+  pick it up within the TTL as usual. The versions table shows which fragments a version uses.
 
 ### Template formats
 
@@ -119,14 +155,16 @@ for a runnable demo (`uvicorn examples.app:app --reload`).
 | `python` | `Help {customer_name} on the {plan} plan.` | Only `{name}` (a plain identifier, optionally `{name:spec}`) is a variable. Every other brace is left as text, so JSON examples such as `{"city": "Paris"}` need no escaping. Write `{{name}}` for a literal `{name}`. |
 | `jinja` | `Help {{ customer_name }}{% if plan == "Pro" %} with priority{% endif %}.` | Sandboxed environment, strict undefined, compiled once per version. |
 
+`{> name}` fragment references work in both formats.
+
 Missing variables raise `PromptRenderError` in both formats.
 
 ### The handle
 
 `get()` / `aget()` return a frozen `Prompt` with: `name`, `version`, `label`, `locale`,
 `requested_locale`, `type`, `format`, `template`, `config`, `metadata`, `variables`, `is_fallback`,
-`checksum`, plus `compile(...)`, `compile_text(...)`, `compile_messages(...)` and
-`trace_attributes()`. `compile()` returns `str | list[Message]`; the two typed variants check the
+`checksum`, `fragments`, plus `compile(...)`, `compile_text(...)`, `compile_messages(...)`,
+`trace_attributes()` and `traced()`. `compile()` returns `str | list[Message]`; the two typed variants check the
 prompt type and return `str` or `list[Message]`. A handle never changes after it is returned, so a
 publish mid-request cannot change what that request renders.
 
@@ -134,9 +172,10 @@ publish mid-request cannot change what that request renders.
 
 - Lazy: a prompt is loaded on first use; startup runs zero queries and starts no threads.
 - Per-process LRU keyed by `(name, label, locale)`, bounded by `cache_max_entries` (500).
-- `cache_ttl` (default 300 s) bounds propagation: after a publish, every worker serves the new
-  version within the TTL. The worker that published serves it immediately. Pass `ttl=` per call;
-  `ttl=0` bypasses the cache.
+- `cache_ttl` (default 60 s) bounds propagation: after a publish, every worker serves the new
+  version within the TTL. The worker that published serves it immediately. 30 s is fine for most
+  apps; raise it only if the database is far away or very busy. Pass `ttl=` per call; `ttl=0`
+  bypasses the cache.
 - Concurrent misses for one key share a single query (sync threads and asyncio tasks).
 - If the database errors, an expired entry is served for up to `max_stale` (1 hour) with
   `is_fallback=True`, retried at most every 5 s, and a rate-limited warning is logged. With nothing
@@ -159,7 +198,7 @@ background threads) and from plain scripts; calling them from inside a running c
 | `engine` | required | SQLAlchemy `Engine` or `AsyncEngine` |
 | `environment` | `production` | Default label for `get()` |
 | `default_locale` | `en` | Final locale fallback |
-| `cache_ttl` | `300` | Seconds a cache entry is fresh; `0` disables caching |
+| `cache_ttl` | `60` | Seconds a cache entry is fresh; `0` disables caching |
 | `cache_max_entries` | `500` | LRU bound per process |
 | `max_stale` | `3600` | How long an expired entry may be served while the database is down |
 | `table_prefix` | `promptpivot_` | Prefix for all tables and the Alembic version table |
@@ -265,11 +304,12 @@ back to `create_all`, which is fine for development.
 2. Mount the router behind your real auth; give `prompts:publish:production` only to approvers or
    on-call, and `prompts:admin` to very few people.
 3. Serve the admin UI over HTTPS (the CSRF cookie is marked `secure` on HTTPS requests).
-4. Pick `cache_ttl` to match how fast you need publishes to propagate; 30 to 300 s is typical.
+4. Pick `cache_ttl` to match how fast you need publishes to propagate; 30 to 60 s is typical.
 5. Give business-critical prompts a `default=` in code so brand-new workers can start during a
    database outage.
-6. Forward `prompt.*` span attributes (automatic when `opentelemetry-api` is installed) so every LLM
-   span records which version produced it.
+6. Wrap LLM calls in `with p.traced():` (or forward `p.trace_attributes()`) so every LLM span
+   records which prompt version, and which fragment versions, produced it. `traced()` also sets
+   OpenTelemetry baggage; add a `BaggageSpanProcessor` to copy it onto child spans automatically.
 7. Watch `GET <prefix>/api/health` (database reachability, cache size and hit ratio).
 
 ## Rollback runbook

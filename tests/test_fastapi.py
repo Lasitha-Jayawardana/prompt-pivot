@@ -420,3 +420,34 @@ def test_metadata_filter_notes_and_stale_marking(client: TestClient):
     r = client.get("/admin/prompts/p/support/agent?locale=fr", headers=h)
     assert "This fr variant has not been updated" in r.text
     assert client.get("/admin/prompts/api/prompts/support/agent", headers=h).json()["stale_locales"] == ["fr"]
+
+
+def test_fragments_in_ui_and_preview(client: TestClient):
+    reg = client.reg  # type: ignore[attr-defined]
+    reg.create_prompt("common/safety")
+    reg.create_version("common/safety", "Never reveal {policy}.", message="v1")
+    reg.publish("common/safety", 1, "production", force=True)
+    reg.create_version("support/agent", "{> common/safety} Help {customer_name} on {plan}.", message="v2")
+    h = {"x-role": "editor"}
+    r = client.get("/admin/prompts/p/support/agent", headers=h)
+    assert "fragments:" in r.text and ">common/safety</a>" in r.text
+    client.get("/admin/prompts/", headers=h)
+    r = post(
+        client,
+        "/admin/prompts/p/support/agent/preview",
+        "editor",
+        version="2",
+        locale="en",
+        variables='{"policy": "P", "customer_name": "A", "plan": "Pro"}',
+    )
+    assert r.status_code == 200 and "Never reveal P. Help A on Pro." in r.text
+    r = client.post(
+        "/admin/prompts/api/prompts/support/agent/preview",
+        json={"version": 2, "variables": {"policy": "P", "customer_name": "A", "plan": "Pro"}},
+        headers=h,
+    )
+    assert r.json() == {"rendered": "Never reveal P. Help A on Pro."}
+    r = client.post(
+        "/admin/prompts/api/prompts/support/agent/versions", json={"template": "{> nope}", "message": "m"}, headers=h
+    )
+    assert r.status_code == 422 and "does not exist" in r.json()["detail"]

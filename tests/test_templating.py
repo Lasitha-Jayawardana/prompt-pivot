@@ -72,3 +72,19 @@ def test_detect_variables_and_checksum():
     assert checksum("a", "python", {}) == checksum("a", "python", {}) != checksum("a", "jinja", {})
     with pytest.raises(PromptRenderError):
         build_renderer("x", "nope")
+
+
+def test_fragment_refs_and_splice():
+    from promptpivot.templating import fragment_refs, splice_fragments
+
+    tpl = "A {> common/safety} B {>x/y@staging} C {> x/y@v3} D {> common/safety} {not_a_ref} {>}"
+    assert fragment_refs(tpl) == [("common/safety", None), ("x/y", "staging"), ("x/y", "v3")]
+    out = splice_fragments(tpl, lambda n, p: f"<{n}|{p}>")
+    assert out == "A <common/safety|None> B <x/y|staging> C <x/y|v3> D <common/safety|None> {not_a_ref} {>}"
+    chat = [{"role": "system", "content": "{> s}"}, {"role": "user", "content": "{q}"}]
+    assert fragment_refs(chat) == [("s", None)]
+    assert splice_fragments(chat, lambda n, p: "S") == [
+        {"role": "system", "content": "S"},
+        {"role": "user", "content": "{q}"},
+    ]
+    assert detect_variables("{> common/safety} {name}", "python") == ("name",)  # refs are not variables

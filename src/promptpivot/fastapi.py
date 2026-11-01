@@ -32,8 +32,8 @@ from .errors import (
 )
 from .models import Principal
 from .registry import PromptRegistry
-from .store import stale_locales
-from .templating import build_renderer
+from .store import locale_candidates, stale_locales
+from .templating import build_renderer, fragment_refs
 
 PrincipalDep = Callable[..., "Principal | Awaitable[Principal]"]
 CSRF_COOKIE = "promptpivot_csrf"
@@ -358,8 +358,12 @@ async def _preview(
     locale = locale or registry.default_locale
     for v in await registry.ahistory(name, locale):
         if v.version == version:
+            cands = locale_candidates(locale, registry.default_locale)
+            expanded, _ = await registry._arun(
+                registry.store.expand, v.template, registry.environment, cands, _stack=(name,)
+            )
             try:
-                return build_renderer(v.template, v.format)(variables)
+                return build_renderer(expanded, v.format)(variables)
             except KeyError as e:
                 raise PromptRenderError(f"missing variable {e.args[0]!r}") from e
     raise PromptNotFound(f"version {version} ({locale}) does not exist")
@@ -684,4 +688,5 @@ def _add_ui(
             current=current,
             rollback_to=rollback_to,
             stale=stale,
+            frag_refs={v.id: [n + ("@" + pin if pin else "") for n, pin in fragment_refs(v.template)] for v in here},
         )

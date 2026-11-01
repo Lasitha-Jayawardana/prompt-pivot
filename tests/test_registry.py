@@ -403,3 +403,88 @@ def test_prompt_names_are_case_sensitive(registry: PromptRegistry):
     registry.publish("support/agent", 1, "staging")
     assert registry.get("Support/Agent", label="staging").compile() == "upper"
     assert registry.get("support/agent", label="staging").compile() == "lower"
+
+
+def test_fragments(registry: PromptRegistry):
+    registry.create_prompt("common/safety")
+    registry.create_version("common/safety", "Never reveal {secret_policy}.", message="v1")
+    registry.publish("common/safety", 1, "staging")
+    registry.create_prompt("common/tone")
+    registry.create_version("common/tone", "Be {tone}. {> common/safety}", message="v1")
+    registry.publish("common/tone", 1, "staging")
+    registry.create_prompt("agent", "chat")
+    registry.create_version(
+        "agent",
+        [{"role": "system", "content": "{> common/tone}\nYou help {customer}."}, {"role": "user", "content": "{q}"}],
+        message="v1",
+    )
+    registry.publish("agent", 1, "staging")
+    p = registry.get("agent", label="staging")
+    assert p.compile_messages(tone="kind", secret_policy="X", customer="A", q="hi")[0].content == (
+        "Be kind. Never reveal X.\nYou help A."
+    )
+    assert p.variables == ("tone", "secret_policy", "customer", "q")
+    assert [str(f) for f in p.fragments] == ["common/tone@v1", "common/safety@v1"]
+    assert p.trace_attributes()["prompt.fragments"] == "common/tone@v1,common/safety@v1"
+    assert isinstance(p.template, list) and "{> common/tone}" in p.template[0].content  # raw stays raw
+    # a fragment publish invalidates the parent handle in this process
+    registry.create_version("common/safety", "Never reveal anything.", message="v2")
+    registry.publish("common/safety", 2, "staging", expected_current=1)
+    assert registry.get("agent", label="staging").compile_messages(tone="kind", customer="A", q="hi")[0].content == (
+        "Be kind. Never reveal anything.\nYou help A."
+    )
+    # pins: by label and by version
+    registry.create_prompt("pinned")
+    registry.create_version("pinned", "[{> common/safety@v1}] [{> common/safety@staging}]", message="v1")
+    registry.publish("pinned", 1, "production", force=True)
+    pp = registry.get("pinned")
+    assert pp.compile_text(secret_policy="S") == "[Never reveal S.] [Never reveal anything.]"
+    assert [(f.label, f.version) for f in pp.fragments] == [("v1", 1), ("staging", 2)]
+    # errors: missing, wrong type, self include, cycle, unresolvable label
+    with pytest.raises(PromptValidationError, match="does not exist"):
+        registry.create_version("pinned", "{> nope}", message="m")
+    with pytest.raises(PromptValidationError, match="text prompt"):
+        registry.create_version("pinned", "{> agent}", message="m")
+    with pytest.raises(PromptValidationError, match="include itself"):
+        registry.create_version("pinned", "{> pinned}", message="m")
+    registry.create_prompt("a")
+    registry.create_prompt("b")
+    registry.create_version("b", "{> a}", message="m")
+    registry.create_version("a", "{> b}", message="m")
+    registry.publish("a", 1, "staging")
+    registry.publish("b", 1, "staging")
+    with pytest.raises(PromptRenderError, match="cycle"):
+        registry.get("a", label="staging")
+    with pytest.raises(PromptNotFound, match="pinned"):
+        registry.get("pinned", label="staging")  # the parent itself has no staging label yet
+    registry.publish("pinned", 1, "staging")
+    registry.create_version("pinned", "{> common/safety@canary}", message="v2")
+    registry.publish("pinned", 2, "staging", expected_current=1)
+    with pytest.raises(PromptNotFound, match="fragment {> common/safety}"):
+        registry.get("pinned", label="staging")
+
+
+def test_traced_sets_attributes_and_baggage():
+    from opentelemetry import baggage, trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    tracer = provider.get_tracer("t")
+    reg = PromptRegistry.in_memory()
+    p = reg.get("missing", default="hi {n}")
+    with tracer.start_as_current_span("request"):
+        with p.traced():
+            assert baggage.get_baggage("prompt.name") == "missing"
+            assert baggage.get_baggage("prompt.is_fallback") == "True"
+            assert trace.get_current_span().is_recording()
+        assert baggage.get_baggage("prompt.name") is None  # detached after the block
+    span = exporter.get_finished_spans()[0]
+    assert span.attributes["prompt.name"] == "missing" and span.attributes["prompt.version"] == 0
+
+
+def test_default_ttl_is_60s():
+    assert PromptRegistry.in_memory().cache_ttl == 60.0

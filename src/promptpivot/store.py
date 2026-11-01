@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -15,16 +16,24 @@ from typing import Any
 
 from sqlalchemy import Connection, CursorResult, Row, func, insert, select, update
 
-from .errors import PromptConflict, PromptNotFound, PromptPolicyError, PromptValidationError
+from .errors import PromptConflict, PromptNotFound, PromptPolicyError, PromptRenderError, PromptValidationError
 from .models import (
     AuditRecord,
     ChangeRequestRecord,
+    FragmentRef,
     LabelRecord,
     PromptRecord,
     VersionRecord,
 )
 from .schema import Tables
-from .templating import checksum, detect_variables, normalize_template
+from .templating import (
+    MAX_FRAGMENT_DEPTH,
+    checksum,
+    detect_variables,
+    fragment_refs,
+    normalize_template,
+    splice_fragments,
+)
 
 CR_STATUSES = ("open", "approved", "rejected", "published")
 
@@ -181,6 +190,78 @@ class Store:
                 return dict(by_locale[loc])
         raise PromptNotFound(f"no version of {name!r} carries label {label!r} for {locales}")
 
+    def resolve_expanded(self, conn: Connection, name: str, label: str, locales: Sequence[str]) -> dict[str, Any]:
+        """``resolve`` plus fragment expansion: adds ``expanded`` (template with every
+        ``{> fragment}`` spliced in) and ``fragments`` (the versions used)."""
+        row = self.resolve(conn, name, label, locales)
+        row["expanded"], row["fragments"] = self.expand(conn, row["template"], label, locales, _stack=(name,))
+        return row
+
+    def expand(
+        self,
+        conn: Connection,
+        template: Any,
+        label: str,
+        locales: Sequence[str],
+        *,
+        _stack: tuple[str, ...] = (),
+    ) -> tuple[str | list[dict[str, Any]], list[FragmentRef]]:
+        """Splice fragment references into ``template``. Fragments are text prompts resolved through
+        ``label`` (or the label / version the reference pins), recursively, with cycle detection."""
+        refs = fragment_refs(template)
+        if not refs:
+            return normalize_template(template), []
+        if len(_stack) > MAX_FRAGMENT_DEPTH:
+            raise PromptRenderError(f"fragments nested deeper than {MAX_FRAGMENT_DEPTH}: {' -> '.join(_stack)}")
+        texts: dict[tuple[str, str | None], str] = {}
+        used: list[FragmentRef] = []
+        for ref_name, pin in refs:
+            if ref_name in _stack:
+                raise PromptRenderError(f"fragment cycle: {' -> '.join(_stack + (ref_name,))}")
+            frag = self._resolve_fragment(conn, ref_name, pin, label, locales)
+            inner, inner_used = self.expand(conn, frag["template"], label, locales, _stack=_stack + (ref_name,))
+            texts[(ref_name, pin)] = inner if isinstance(inner, str) else ""
+            used.append(FragmentRef(ref_name, frag["locale"], frag["version"], frag["label"], frag["checksum"]))
+            used.extend(inner_used)
+        return splice_fragments(template, lambda n, p: texts[(n, p)]), used
+
+    def _resolve_fragment(
+        self, conn: Connection, name: str, pin: str | None, label: str, locales: Sequence[str]
+    ) -> dict[str, Any]:
+        p = self.t.prompts
+        prow = conn.execute(select(p.c.id, p.c.type).where(p.c.name == name, p.c.archived_at.is_(None))).first()
+        if prow is None:
+            raise PromptNotFound(f"fragment {{> {name}}} refers to a prompt that does not exist")
+        if prow.type != "text":
+            raise PromptRenderError(f"fragment {{> {name}}} must be a text prompt, not {prow.type}")
+        if pin and re.fullmatch(r"v\d+", pin):
+            v = self.t.versions
+            for loc in locales:
+                row = conn.execute(
+                    select(v).where(v.c.prompt_id == prow.id, v.c.locale == loc, v.c.version == int(pin[1:]))
+                ).first()
+                if row is not None:
+                    return {
+                        "template": row.template,
+                        "locale": loc,
+                        "version": row.version,
+                        "label": pin,
+                        "checksum": row.checksum,
+                    }
+            raise PromptNotFound(f"fragment {{> {name}@{pin}}}: no version {pin} for locales {tuple(locales)}")
+        use_label = pin or label
+        try:
+            resolved = self.resolve(conn, name, use_label, locales)
+        except PromptNotFound as e:
+            raise PromptNotFound(f"fragment {{> {name}}}: {e}") from e
+        return {
+            "template": resolved["template"],
+            "locale": resolved["locale"],
+            "version": resolved["version"],
+            "label": use_label,
+            "checksum": resolved["checksum"],
+        }
+
     def health(self, conn: Connection) -> bool:
         conn.execute(select(1))
         return True
@@ -325,6 +406,14 @@ class Store:
                 .limit(1)
             ).scalar()
             config = dict(prev or {})
+        for ref_name, _pin in fragment_refs(template):
+            if ref_name == name:
+                raise PromptValidationError(f"a prompt cannot include itself ({{> {name}}})")
+            frag = conn.execute(select(self.t.prompts.c.type).where(self.t.prompts.c.name == ref_name)).first()
+            if frag is None:
+                raise PromptValidationError(f"fragment {{> {ref_name}}} refers to a prompt that does not exist")
+            if frag.type != "text":
+                raise PromptValidationError(f"fragment {{> {ref_name}}} must be a text prompt")
         vars_ = tuple(variables) if variables is not None else detect_variables(template, format)
         v = self.t.versions
         number = (

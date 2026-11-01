@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generic, Literal, Type, TypeVar, cast  # noqa: UP035
@@ -53,6 +55,21 @@ class Principal(BaseModel):
         return "prompts:admin" in self.permissions or permission in self.permissions
 
 
+@dataclass(frozen=True, slots=True)
+class FragmentRef:
+    """A fragment that was spliced into a handle, and exactly which version of it."""
+
+    name: str
+    locale: str
+    version: int
+    label: str
+    """The label it was resolved through, or ``v3`` when the reference pinned a version."""
+    checksum: str
+
+    def __str__(self) -> str:
+        return f"{self.name}@v{self.version}"
+
+
 V = TypeVar("V", bound=BaseModel)
 C = TypeVar("C", bound=BaseModel)
 M = TypeVar("M")
@@ -75,6 +92,8 @@ class Prompt(Generic[V, C, M]):
     variables: tuple[str, ...]
     is_fallback: bool = False
     checksum: str = ""
+    fragments: tuple[FragmentRef, ...] = ()
+    """Fragments resolved into this handle, with the version of each (see ``{> name}`` references)."""
     _renderer: Renderer = field(repr=False, compare=False, default=None)  # type: ignore[assignment]
     _variables_model: Type[V] | None = field(repr=False, compare=False, default=None)  # noqa: UP006
 
@@ -110,13 +129,42 @@ class Prompt(Generic[V, C, M]):
 
     def trace_attributes(self) -> dict[str, str | int | bool]:
         """OpenTelemetry-ready span attributes."""
-        return {
+        attrs: dict[str, str | int | bool] = {
             "prompt.name": self.name,
             "prompt.version": self.version,
             "prompt.label": self.label,
             "prompt.locale": self.locale,
             "prompt.is_fallback": self.is_fallback,
         }
+        if self.fragments:
+            attrs["prompt.fragments"] = ",".join(str(f) for f in self.fragments)
+        return attrs
+
+    @contextmanager
+    def traced(self) -> Iterator[None]:
+        """Record this prompt on the current OpenTelemetry span and carry it as baggage.
+
+        Inside the block the current span gets :meth:`trace_attributes`, and the same keys are set
+        as baggage so an OpenTelemetry ``BaggageSpanProcessor`` (or your own processor) can copy
+        them onto every child span, such as the LLM call. A no-op when OpenTelemetry is absent.
+        """
+        try:
+            from opentelemetry import baggage, context, trace
+        except ImportError:
+            yield
+            return
+        attrs = self.trace_attributes()
+        span = trace.get_current_span()
+        if span.is_recording():
+            span.set_attributes(attrs)
+        ctx = context.get_current()
+        for key, value in attrs.items():
+            ctx = baggage.set_baggage(key, str(value), ctx)
+        token = context.attach(ctx)
+        try:
+            yield
+        finally:
+            context.detach(token)
 
 
 # --- management records (plain, frozen) ---------------------------------------------------------
