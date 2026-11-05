@@ -31,6 +31,8 @@ def normalize_template(template: Any) -> str | list[dict[str, Any]]:
     for m in template:
         if hasattr(m, "model_dump"):
             m = m.model_dump()
+        elif hasattr(m, "dict") and hasattr(m, "__fields__"):  # pydantic v1 model
+            m = m.dict()
         if not isinstance(m, dict) or "role" not in m or "content" not in m:
             raise PromptRenderError("each chat message needs a role and a content")
         out.append(dict(m))

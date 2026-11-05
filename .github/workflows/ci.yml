@@ -2,10 +2,17 @@ name: ci
 on: [push, pull_request]
 jobs:
   test:
+    name: test (py${{ matrix.python }}, pydantic ${{ matrix.pydantic }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13"]
+        pydantic: ["2"]
+        include:
+          # legacy support: pydantic 1.10 (resolves FastAPI <= 0.125, the last line that accepts v1)
+          - { python: "3.10", pydantic: "1.10.26" }
+          - { python: "3.13", pydantic: "1.10.26" }
     services:
       postgres:
         image: postgres:16
@@ -20,8 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uv venv --python ${{ matrix.python }} && uv pip install -e ".[postgres,mysql]" --group dev
+      - run: uv venv --python ${{ matrix.python }} && uv pip install -e ".[postgres,mysql]" --group dev "pydantic==${{ matrix.pydantic }}.*"
       - run: .venv/bin/ruff check . && .venv/bin/mypy
+        if: matrix.pydantic == '2'
       - run: .venv/bin/pytest --cov=promptpivot --cov-fail-under=90
         env:
           PROMPTPIVOT_TEST_POSTGRES_URL: postgresql+psycopg://pd:pd@localhost:5432/pd

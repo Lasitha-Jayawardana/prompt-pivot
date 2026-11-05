@@ -64,6 +64,9 @@ with p.traced():  # prompt.* on the current span + baggage
     )
 ```
 
+On Pydantic 1.10 (supported for legacy apps) use `m.dict()` instead of `m.model_dump()`; check with
+`pydantic.VERSION`. Everything else in this guide is the same on both.
+
 Rules:
 
 1. In `async def` code use `aget` / `a*` methods. In sync code (scripts, Celery tasks, sync routes)

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from promptpivot import PromptRegistry
+from promptpivot._compat import PYDANTIC_V2
 from promptpivot.cli import main
 from promptpivot.migrations import upgrade
 from tests.conftest import seed
@@ -103,6 +104,7 @@ def test_migration_from_initial_schema(tmp_path):
     assert ScriptDirectory.from_config(cfg).get_current_head() == "0002"
 
 
+@pytest.mark.skipif(not PYDANTIC_V2, reason="reference is generated with pydantic v2 signatures")
 def test_reference_is_up_to_date():
     """docs/reference.md is generated from the code; regenerate with `python docs/gen_reference.py`."""
     import importlib.util

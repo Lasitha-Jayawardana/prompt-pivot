@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generic, Literal, Type, TypeVar, cast  # noqa: UP035
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ValidationError
 
+from ._compat import FrozenModel, StrictFrozenModel, dump, validate
 from .errors import PromptRenderError, PromptValidationError
 from .templating import Renderer
 
@@ -20,10 +21,8 @@ DEFAULT_LABELS = ("production", "staging", "latest")
 """Built-in labels. ``latest`` moves automatically on every save."""
 
 
-class PromptConfig(BaseModel):
+class PromptConfig(FrozenModel):
     """Default typed model settings. Extra keys are kept."""
-
-    model_config = ConfigDict(extra="allow", frozen=True)
 
     model: str | None = None
     temperature: float | None = None
@@ -32,19 +31,15 @@ class PromptConfig(BaseModel):
     response_format: dict[str, Any] | None = None
 
 
-class Message(BaseModel):
+class Message(FrozenModel):
     """One chat message of a ``chat`` prompt."""
-
-    model_config = ConfigDict(frozen=True, extra="allow")
 
     role: str
     content: str
 
 
-class Principal(BaseModel):
+class Principal(StrictFrozenModel):
     """Who is acting. The host app builds one from its own auth."""
-
-    model_config = ConfigDict(frozen=True)
 
     id: str
     name: str = ""
@@ -102,10 +97,10 @@ class Prompt(Generic[V, C, M]):
         if variables is not None:
             if kwargs:
                 raise TypeError("pass either a variables model or keyword arguments, not both")
-            values = variables.model_dump()
+            values = dump(variables)
         elif self._variables_model is not None:
             try:
-                values = self._variables_model.model_validate(kwargs).model_dump()
+                values = dump(validate(self._variables_model, kwargs))
             except ValidationError as e:
                 raise PromptValidationError(str(e)) from e
         else:

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Legacy Pydantic 1.10 support (`pydantic>=1.10,<3`). Internals go through a small compat module;
+  CI runs the suite on Pydantic 1.10.26 with Python 3.10 and 3.13. On Pydantic 1 the resolver picks
+  FastAPI 0.125 or older. User code calls `.dict()` instead of `.model_dump()`.
+
 ## 0.2.0 (2026-11-01)
 
 - Agent Skill: `skills/prompt-pivot/SKILL.md` in the repository and `prompt-pivot skill`, which writes

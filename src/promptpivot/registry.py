@@ -14,6 +14,7 @@ from sqlalchemy import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from ._compat import construct, dump, validate
 from .cache import PromptCache
 from .errors import (
     PromptNotFound,
@@ -311,9 +312,9 @@ class PromptRegistry:
             for frag in fragments:
                 self._dependents.setdefault(frag.name, set()).add(name)
             try:
-                config = cfg_model.model_validate(row["config"] or {})
+                config = validate(cfg_model, row["config"] or {})
                 meta_raw = row["prompt_metadata"] or {}
-                metadata = meta_model.model_validate(meta_raw) if meta_model else dict(meta_raw)
+                metadata = validate(meta_model, meta_raw) if meta_model else dict(meta_raw)
             except ValidationError as e:
                 raise PromptValidationError(f"prompt {name!r} v{row['version']}: {e}") from e
             return Prompt(
@@ -350,9 +351,7 @@ class PromptRegistry:
         cfg_model = cfg_model or self.config_model
         meta_model = meta_model or self.metadata_model
         raw = (
-            default
-            if isinstance(default, str)
-            else [m.model_dump() if isinstance(m, BaseModel) else dict(m) for m in default]
+            default if isinstance(default, str) else [dump(m) if isinstance(m, BaseModel) else dict(m) for m in default]
         )
         fmt = default_format or guess_format(raw)
         if fmt not in ("python", "jinja"):
@@ -366,8 +365,8 @@ class PromptRegistry:
             type="text" if isinstance(raw, str) else "chat",
             format=fmt,  # type: ignore[arg-type]
             template=raw if isinstance(raw, str) else [Message(**m) for m in raw],
-            config=cfg_model.model_construct(),
-            metadata=meta_model.model_construct() if meta_model else {},
+            config=construct(cfg_model),
+            metadata=construct(meta_model) if meta_model else {},
             variables=detect_variables(raw, fmt),
             is_fallback=True,
             _renderer=build_renderer(raw, fmt),
@@ -816,14 +815,14 @@ class PromptRegistry:
     def _check_config(self, config: dict[str, Any] | None) -> None:
         if config:
             try:
-                self.config_model.model_validate(config)
+                validate(self.config_model, config)
             except ValidationError as e:
                 raise PromptValidationError(f"config: {e}") from e
 
     def _check_metadata(self, metadata: dict[str, Any] | None) -> None:
         if metadata and self.metadata_model is not None:
             try:
-                self.metadata_model.model_validate(metadata)
+                validate(self.metadata_model, metadata)
             except ValidationError as e:
                 raise PromptValidationError(f"metadata: {e}") from e
 

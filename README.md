@@ -33,8 +33,14 @@ pip install "prompt-pivot[yaml]"       # YAML export/import in the CLI
 pip install "prompt-pivot[otel]"       # OpenTelemetry span attributes
 ```
 
-Python 3.10+, SQLAlchemy 2, Pydantic 2, FastAPI 0.110+. PostgreSQL 13+ and MySQL 8+ (SQLite works
+Python 3.10+, SQLAlchemy 2, Pydantic 2 (or legacy Pydantic 1.10, see below), FastAPI 0.110+. PostgreSQL 13+ and MySQL 8+ (SQLite works
 for local development and tests).
+
+**Pydantic 1.10 (legacy).** Apps still on `pydantic==1.10.x` can install the package unchanged; the
+resolver then picks FastAPI 0.125 or older, the last releases that accept Pydantic 1. Everything works
+the same, with one difference in your own code: on Pydantic 1 call `.dict()` instead of `.model_dump()`
+on `Message`, `PromptConfig` and your own models. Pydantic 1 is end of life upstream, so plan to move
+to 2; support here will be dropped in a future major release.
 
 ## Quickstart (10 minutes)
 
