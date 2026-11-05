@@ -3,7 +3,7 @@ name: prompt-pivot
 description: Use when writing or changing Python code that reads, defines or manages LLM prompts with the prompt-pivot library (import promptpivot: PromptRegistry, prompts.get/aget, define, admin_router, labels, locales, fragments, change requests). Gives the sync/async forms, template brace rules, publish and approval flow, permissions and error handling for the installed version.
 license: Apache-2.0
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
   source: https://github.com/Lasitha-Jayawardana/prompt-pivot
 ---
 

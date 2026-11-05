@@ -28,7 +28,7 @@ from .models import (
 )
 from .registry import PromptAccessor, PromptRegistry
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 SKILL_NAME = "prompt-pivot"

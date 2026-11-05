@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-11-05)
 
 - Legacy Pydantic 1.10 support (`pydantic>=1.10,<3`). Internals go through a small compat module;
   CI runs the suite on Pydantic 1.10.26 with Python 3.10 and 3.13. On Pydantic 1 the resolver picks

@@ -1,6 +1,6 @@
 # prompt-pivot API reference
 
-Generated from `promptpivot` 0.2.0 by `docs/gen_reference.py`. Do not edit by hand.
+Generated from `promptpivot` 0.2.1 by `docs/gen_reference.py`. Do not edit by hand.
 
 Import everything below from `promptpivot` unless a module path is shown.
 
